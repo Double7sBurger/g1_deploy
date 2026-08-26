@@ -82,6 +82,7 @@ class G1SimEnv:
         sim_dt: float = SIM_DT,
         decimation: int = DECIMATION,
         onscreen: bool = False,
+        key_callback=None,
         contact_timeconst: float = 0.0,
         body_mass_scale: dict[str, float] | None = None,
         integrator: str | None = None,
@@ -99,6 +100,8 @@ class G1SimEnv:
             sim_dt: Physics timestep [s].
             decimation: Physics steps per :meth:`step_control` call.
             onscreen: Open a passive viewer tracking the pelvis.
+            key_callback: Called with a GLFW key code on every viewer keypress. Only meaningful with
+                ``onscreen``; the viewer owns the window and therefore the keyboard.
             contact_timeconst: Override every geom's ``solref`` time constant [s]; 0 keeps the
                 model's own value. This is a system-identification knob, not a model edit.
             body_mass_scale: Per-body mass and inertia multipliers, for system identification
@@ -180,7 +183,9 @@ class G1SimEnv:
         self.torso_id = self.model.body("torso_link").id
         self.viewer = None
         if onscreen:
-            self.viewer = mujoco.viewer.launch_passive(self.model, self.data, show_left_ui=False, show_right_ui=False)
+            self.viewer = mujoco.viewer.launch_passive(
+                self.model, self.data, show_left_ui=False, show_right_ui=False, key_callback=key_callback
+            )
             self.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
             self.viewer.cam.trackbodyid = self.pelvis_id
             self.viewer.cam.distance = 2.5

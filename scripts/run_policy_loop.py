@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -68,6 +69,77 @@ closed for system identification without touching the asset.
 """
 
 
+TURN_STEP_DEG = 15.0
+"""Heading-target nudge per Q/E press [deg]."""
+
+
+class KeyboardCommand:
+    """Velocity command driven from the MuJoCo viewer window.
+
+    WASD sets the direction, R/F the speed, X stops. Q/E steer the *heading target* rather than a yaw
+    rate, because heading is what the training-time command generator actually takes as input -- the
+    yaw element is a proportional controller on heading error, recomputed every control step by
+    :meth:`advance`. Steering the yaw rate directly would be off distribution.
+
+    The viewer calls this from its own thread, so the state is behind a lock.
+    """
+
+    def __init__(self, command: np.ndarray, heading_target: float | None, max_speed: float = 1.0):
+        self.command = command
+        self.target = command.copy()
+        self.heading_target = heading_target
+        self.max_speed = max_speed
+        planar = float(np.linalg.norm(command[:2]))
+        self.speed = planar if planar > 1.0e-6 else 0.5
+        self.direction = command[:2] / planar if planar > 1.0e-6 else np.array([1.0, 0.0])
+        self.moving = planar > 1.0e-6
+        self._lock = threading.Lock()
+
+    def __call__(self, key: int) -> None:
+        import mujoco
+
+        glfw = mujoco.glfw.glfw
+        directions = {
+            glfw.KEY_W: np.array([1.0, 0.0]),
+            glfw.KEY_S: np.array([-1.0, 0.0]),
+            glfw.KEY_A: np.array([0.0, 1.0]),
+            glfw.KEY_D: np.array([0.0, -1.0]),
+        }
+        with self._lock:
+            if key in directions:
+                self.direction, self.moving = directions[key], True
+            elif key == glfw.KEY_X:
+                self.moving = False
+            elif key == glfw.KEY_R:
+                self.speed = min(self.max_speed, self.speed + 0.1)
+            elif key == glfw.KEY_F:
+                self.speed = max(0.0, self.speed - 0.1)
+            elif key in (glfw.KEY_Q, glfw.KEY_E) and self.heading_target is not None:
+                step = np.deg2rad(TURN_STEP_DEG if key == glfw.KEY_Q else -TURN_STEP_DEG)
+                self.heading_target = core.wrap_to_pi(self.heading_target + step)
+                print(f"[key] heading -> {np.rad2deg(self.heading_target):+.0f} deg")
+                return
+            else:
+                return
+            self.target[:2] = self.direction * self.speed if self.moving else 0.0
+            print(f"[key] speed {self.speed:.1f} m/s   cmd {np.round(self.target[:2], 2)}")
+
+    def advance(self, dt: float, max_accel: float, quat_wxyz: np.ndarray) -> None:
+        """Slew the planar command toward the keyboard target and refresh the yaw rate.
+
+        The planar part is rate limited so a keypress does not hand the policy a velocity step. The
+        yaw part is not: it is the heading controller's output, and rate limiting a proportional
+        controller just makes it a different controller.
+        """
+        with self._lock:
+            delta = self.target[:2] - self.command[:2]
+            norm = float(np.linalg.norm(delta))
+            step = max_accel * dt
+            self.command[:2] = self.target[:2] if norm <= step or norm < 1e-9 else self.command[:2] + delta * (step / norm)
+            if self.heading_target is not None:
+                self.command[2] = core.yaw_rate_from_heading(self.heading_target, quat_wxyz)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--policy", required=True, help="TorchScript policy exported by isaaclab play.")
@@ -90,7 +162,20 @@ def main() -> int:
         " error against it, which is how training generated that element.",
     )
     parser.add_argument("--duration", type=float, default=15.0, help="Seconds of policy control.")
-    parser.add_argument("--viz", action="store_true", help="Open a viewer (--sim sync/free only).")
+    parser.add_argument("--viz", action="store_true", help="Open a viewer (--sim sync only).")
+    parser.add_argument(
+        "--keyboard",
+        action="store_true",
+        help="Drive the command from the viewer window: WASD direction, R/F speed +-0.1 m/s, X stop,"
+        " Q/E turn +-15 deg. Implies --viz.",
+    )
+    parser.add_argument(
+        "--command_accel",
+        type=float,
+        default=1.0,
+        help="Slew rate for keyboard velocity changes [m/s^2]. Training stepped the command with no"
+        " smoothing at all, so any slew here is gentler than what the policy saw.",
+    )
     parser.add_argument("--domain_id", type=int, default=1)
     parser.add_argument("--interface", default="lo")
     parser.add_argument(
@@ -158,6 +243,10 @@ def main() -> int:
     args = parser.parse_args()
     if args.real:
         args.sim = "none"
+    if args.keyboard:
+        args.viz = True
+        if args.sim != "sync":
+            raise ValueError("--keyboard needs --sim sync: the viewer window belongs to the simulator")
 
     core.set_policy_backend(args.policy_physics)
     policy = load_policy(args.policy)
@@ -166,11 +255,15 @@ def main() -> int:
 
     ChannelFactoryInitialize(args.domain_id, args.interface)
 
+    heading_target = args.heading
+    command = np.array([args.vx, args.vy, 0.0], dtype=np.float32)
+    keyboard = KeyboardCommand(command, heading_target) if args.keyboard else None
+
     bridge = env = None
     if args.sim != "none":
-        from dds_sim_bridge import G1SimBridge
-        from dds_sim_env import SIM_DT as ENV_SIM_DT
-        from dds_sim_env import G1SimEnv
+        from g1_deploy.sim.bridge import G1SimBridge
+        from g1_deploy.sim.env import SIM_DT as ENV_SIM_DT
+        from g1_deploy.sim.env import G1SimEnv
 
         if SIM_DT != ENV_SIM_DT:
             raise ValueError(f"SIM_DT mirror is stale: {SIM_DT} here vs {ENV_SIM_DT} in dds_sim_env")
@@ -182,6 +275,7 @@ def main() -> int:
             sim_dt=args.sim_dt,
             decimation=int(round(core.CONTROL_DT / args.sim_dt)),
             onscreen=args.viz,
+            key_callback=keyboard,
             contact_timeconst=args.contact_timeconst,
             body_mass_scale=mass_scale,
             integrator=args.integrator,
@@ -234,6 +328,8 @@ def main() -> int:
 
     link = G1ControlLink(num_motors=core.NUM_ROBOT_MOTORS)
     if args.sim == "sync":
+        from g1_deploy.sim.bridge import await_discovery
+
         mode_machine = await_discovery(link, bridge, env, default_pose, kp, kd)
     else:
         mode_machine = int(link.wait_for_state().mode_machine)
@@ -265,6 +361,8 @@ def main() -> int:
         else f"physics {env.sim_dt * 1000:.1f} ms x {env.decimation}"
         f"  solref {env.model.geom_solref[1, 0]:.4f}  root_z {root_z:.3f} m"
     )
+    if keyboard is not None:
+        print("[keys] W/S forward/back  A/D left/right  R/F speed +-0.1  X stop  Q/E turn +-15 deg")
     print(
         f"[..] {Path(args.policy).parent.name}  mode={args.sim}  order={args.policy_physics}"
         f"  mode_machine={mode_machine}\n"
@@ -286,7 +384,10 @@ def main() -> int:
             quat = np.asarray(state.imu_state.quaternion[:4], dtype=np.float32)
             gyro = np.asarray(state.imu_state.gyroscope[:3], dtype=np.float32)
             q, dq = read_joint_state(state, core.NUM_ROBOT_MOTORS)
-            command = np.array([args.vx, args.vy, core.yaw_rate_from_heading(args.heading, quat)], dtype=np.float32)
+            if keyboard is not None:
+                keyboard.advance(core.CONTROL_DT, args.command_accel, quat)
+            else:
+                command[:] = (args.vx, args.vy, core.yaw_rate_from_heading(args.heading, quat))
 
             target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
             target[core.UNMAPPED_ROBOT_MOTORS] = 0.0
