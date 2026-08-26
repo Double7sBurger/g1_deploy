@@ -50,7 +50,7 @@ def main() -> int:
     parser.add_argument("--xml", default=str(DEFAULT_XML))
     parser.add_argument(
         "--policy_physics",
-        choices=("physx", "newton"),
+        choices=("physx", "newton", "g1_29dof"),
         default="newton",
         help="Only decides which default pose the robot is reset into; the joint order on the wire"
         " is always G1JointIndex.",

@@ -59,7 +59,7 @@ def annotate(frame: np.ndarray, lines: list[tuple[str, tuple[int, int, int]]]) -
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--policy", required=True)
-    parser.add_argument("--policy_physics", choices=("physx", "newton"), default="newton")
+    parser.add_argument("--policy_physics", choices=("physx", "newton", "g1_29dof"), default="newton")
     parser.add_argument("--xml", default=str(DEFAULT_XML))
     parser.add_argument("--out", default="/tmp/mj_video/clip_0000.mp4")
     parser.add_argument("--csv", default=None, help="Per-step overlay data; defaults beside --out.")

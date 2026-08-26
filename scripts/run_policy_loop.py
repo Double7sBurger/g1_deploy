@@ -73,7 +73,7 @@ def main() -> int:
     parser.add_argument("--policy", required=True, help="TorchScript policy exported by isaaclab play.")
     parser.add_argument(
         "--policy_physics",
-        choices=("physx", "newton"),
+        choices=("physx", "newton", "g1_29dof"),
         default="newton",
         help="Backend the checkpoint was trained with; PhysX and Newton enumerate the same USD's"
         " joints in different orders and the wrong choice silently drives the wrong motors.",

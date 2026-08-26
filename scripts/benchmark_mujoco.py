@@ -156,7 +156,7 @@ def run_episode(job: tuple[str, int]) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--policy", required=True)
-    parser.add_argument("--policy_physics", choices=("physx", "newton"), default="newton")
+    parser.add_argument("--policy_physics", choices=("physx", "newton", "g1_29dof"), default="newton")
     parser.add_argument("--suite", choices=("hold", "sequence"), default="hold")
     parser.add_argument("--repeats", type=int, default=3, help="Seeds per hold-grid entry, or episodes for sequence.")
     parser.add_argument("--xml", default=str(DEFAULT_XML))

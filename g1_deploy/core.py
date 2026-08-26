@@ -119,8 +119,34 @@ _NEWTON_JOINT_NAMES = [
     "right_two_joint",
 ]
 
-JOINT_ORDER_BY_BACKEND = {"physx": _PHYSX_JOINT_NAMES, "newton": _NEWTON_JOINT_NAMES}
-"""Articulation order per training backend -- they genuinely differ for the same USD.
+def _load_contract(name: str) -> dict:
+    """Load a dumped training contract from ``g1_deploy/data``."""
+    import json
+    from pathlib import Path
+
+    with open(Path(__file__).resolve().parent / "data" / name) as handle:
+        return json.load(handle)
+
+
+_DR29 = _load_contract("g1_dr29_contract.json")
+"""Contract dumped from ``Isaac-Velocity-Flat-G1-DR29`` with randomization disabled.
+
+Dumped rather than transcribed, and with the randomization off on purpose: read live from a
+randomized environment, the leg stiffness comes back as one *sample* of the trained band -- 146.7 on
+a hip whose nominal is 200, 347.8 on a knee whose nominal is 200 -- and deploying those would put the
+wrong PD on the robot.
+"""
+
+JOINT_ORDER_BY_BACKEND = {
+    "physx": _PHYSX_JOINT_NAMES,
+    "newton": _NEWTON_JOINT_NAMES,
+    "g1_29dof": _DR29["joint_names"],
+}
+"""Articulation order per trained profile.
+
+``physx`` and ``newton`` are two enumerations of the *same* superseded 23-joint USD: PhysX walks it
+breadth first and Newton depth first, and a checkpoint follows whichever trained it. ``g1_29dof`` is
+a different robot -- Unitree's current description, 43 joints, and the one that matches hardware.
 
 PhysX enumerates breadth first (both hip pitches, then the waist, then both hip rolls...);
 Newton enumerates depth first (the whole left leg, then the whole right leg). A checkpoint
@@ -160,6 +186,19 @@ _ROBOT_INDEX_BY_POLICY_NAME = {
     "right_shoulder_yaw_joint": 24,
     "right_elbow_pitch_joint": 25,
     "right_elbow_roll_joint": 26,
+    # The current description names these as the robot does, and unlike the superseded asset it
+    # actually has them -- which is why UNMAPPED_ROBOT_MOTORS comes out empty under g1_29dof.
+    "waist_yaw_joint": 12,
+    "waist_roll_joint": 13,
+    "waist_pitch_joint": 14,
+    "left_elbow_joint": 18,
+    "left_wrist_roll_joint": 19,
+    "left_wrist_pitch_joint": 20,
+    "left_wrist_yaw_joint": 21,
+    "right_elbow_joint": 25,
+    "right_wrist_roll_joint": 26,
+    "right_wrist_pitch_joint": 27,
+    "right_wrist_yaw_joint": 28,
 }
 POLICY_TO_ROBOT = np.array(
     [_ROBOT_INDEX_BY_POLICY_NAME.get(name, -1) for name in POLICY_JOINT_NAMES],
@@ -265,11 +304,14 @@ def set_policy_backend(backend: str) -> None:
         ValueError: If the backend is unknown.
     """
     global POLICY_JOINT_NAMES, POLICY_TO_ROBOT, UNMAPPED_ROBOT_MOTORS, LEG_POLICY_INDICES, DEFAULT_JOINT_POS
+    global NUM_POLICY_JOINTS, OBS_DIM, NOMINAL_KP, NOMINAL_KD
 
     if backend not in JOINT_ORDER_BY_BACKEND:
         raise ValueError(f"unknown backend {backend!r}; expected one of {sorted(JOINT_ORDER_BY_BACKEND)}")
 
     POLICY_JOINT_NAMES = list(JOINT_ORDER_BY_BACKEND[backend])
+    NUM_POLICY_JOINTS = len(POLICY_JOINT_NAMES)
+    OBS_DIM = HISTORY_LENGTH * (3 + 3 + 3 + NUM_POLICY_JOINTS * 3)
     POLICY_TO_ROBOT = np.array(
         [_ROBOT_INDEX_BY_POLICY_NAME.get(name, -1) for name in POLICY_JOINT_NAMES], dtype=np.int32
     )
@@ -281,8 +323,19 @@ def set_policy_backend(backend: str) -> None:
         dtype=np.int32,
     )
     DEFAULT_JOINT_POS = np.zeros(NUM_POLICY_JOINTS, dtype=np.float32)
-    for name, value in _DEFAULT_JOINT_POS_BY_NAME.items():
-        DEFAULT_JOINT_POS[POLICY_JOINT_NAMES.index(name)] = value
+    if backend == "g1_29dof":
+        DEFAULT_JOINT_POS[:] = _DR29["default_joint_pos"]
+        # Every one of the robot's 29 motors is policy-driven under this profile, so the gains come
+        # straight from what training used. Nothing is left for the caller to hold.
+        NOMINAL_KP = np.zeros(NUM_ROBOT_MOTORS, dtype=np.float32)
+        NOMINAL_KD = np.zeros(NUM_ROBOT_MOTORS, dtype=np.float32)
+        for slot, motor in enumerate(POLICY_TO_ROBOT):
+            if motor >= 0:
+                NOMINAL_KP[motor] = _DR29["stiffness"][slot]
+                NOMINAL_KD[motor] = _DR29["damping"][slot]
+    else:
+        for name, value in _DEFAULT_JOINT_POS_BY_NAME.items():
+            DEFAULT_JOINT_POS[POLICY_JOINT_NAMES.index(name)] = value
 
 
 _UNMAPPED_HOLD_GAINS = {
