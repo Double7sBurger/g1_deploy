@@ -17,6 +17,7 @@ g1_deploy/
   bootstrap.py    CycloneDDS library path fix (Linux dev boxes only; a no-op elsewhere)
   benchmark.py    shared command schedule and scoring, used by every runner
   teleop.py       keyboard command source — terminal keys, and viewer keys in --sim sync
+  data/           training contracts dumped from Isaac Lab, one per --policy_physics profile
   sim/            MuJoCo stand-in for the robot — optional, the only part needing mujoco
 scripts/
   run_policy_loop.py   entry point, for both the robot and the simulator
@@ -57,6 +58,31 @@ DDS domain ids must satisfy `7400 + 250 * id < 65536`, i.e. stay under about 230
 CycloneDDS fails to open its discovery socket with a port "out of range".
 
 You also need an exported TorchScript policy (`policy.pt`) from `isaaclab play`.
+
+## Which joint layout: `--policy_physics`
+
+Every runner takes `--policy_physics`, and it names the layout the checkpoint was **trained**
+against, not a simulator you want to use now. Three exist, and they are not interchangeable:
+
+| value | joints | observation | what it is |
+|---|---|---|---|
+| `newton` | 37 | 600 | the superseded `g1_minimal.usd`, depth first (whole left leg, then the right) |
+| `physx` | 37 | 600 | the same USD, breadth first (both hip pitches, then the waist, then both hip rolls) |
+| `g1_29dof` | 43 | 690 | the current robot description, the one that matches hardware |
+
+`physx` and `newton` describe one robot in two orders, so getting them wrong is silent: the policy
+loads, the observation is the right size, and the actions drive the wrong motors. `g1_29dof` is a
+different robot, so getting it wrong is loud — `load_policy` probes the network with a
+`(1, OBS_DIM)` zero vector and a 690-input checkpoint refuses a 600-element one. **If you hit a
+shape mismatch loading a checkpoint trained on the current asset, this flag is the answer.**
+
+Under `g1_29dof` all 29 motors are policy driven and `UNMAPPED_ROBOT_MOTORS` comes out empty; under
+the other two, six motors — the waist roll and pitch, and both wrist pitches and yaws — have no
+policy joint behind them and are held at `_UNMAPPED_HOLD_GAINS` instead. The PD gains and the
+default pose come from `g1_deploy/data/g1_dr29_contract.json`, dumped from the training environment
+with randomization **off**: read live from a randomized env, the leg stiffness comes back as one
+sample of the trained band (146.7 on a hip whose nominal is 200), and deploying that sample would
+put the wrong PD on the robot.
 
 ## Rehearse before touching hardware
 
@@ -191,9 +217,16 @@ there the hoist leaves them carrying load at kp 20; do not read the simulator's 
 
 It does **not** check the joint ordering. `--policy_physics` orders the policy's own observation and
 action vectors, while `build_default_pose()` is assembled by joint name — so the ramp target is
-byte-identical under `physx` and `newton`, and a wrong backend is invisible here. What validates
-that is the MuJoCo benchmark: a scrambled action order does not walk. And a small error means the
-robot went where it was told, not that the pose is right — look at it.
+byte-identical under all three layouts, `g1_29dof` included, and a wrong choice is invisible in the
+pose. What validates that is the MuJoCo benchmark: a scrambled action order does not walk. And a
+small error means the robot went where it was told, not that the pose is right — look at it.
+
+The *gains* are not identical, and the dry run does hold the robot at them. Going from `newton` to
+`g1_29dof` the four wrist pitch/yaw motors move from the unmapped hold gains to what training used —
+kd 1.0 → 10.0 at the same kp 40 — because under the old asset those joints do not exist and are
+merely held, while under the current one the policy drives them. Nothing else changes. Expect the
+wrists to feel notably more damped when you back-drive them by hand; that is the trained value, not
+a mis-set one.
 
 ### Step 2: the policy
 
@@ -249,3 +282,8 @@ Lab exactly (0.000 mm forward kinematics across six joint configurations, four h
 explaining the gap, not for predicting hardware. The real fix is to retrain on a current asset;
 NVIDIA's `i4h-asset-catalog` ships one (`Robots/UnitreeG1/g1_29dof_wholebody_dex3/`) whose leg joints
 match the current URDF to 0.000 mm.
+
+That retrain has since happened, and its checkpoints deploy through `--policy_physics g1_29dof` —
+see [Which joint layout](#which-joint-layout---policy_physics). The limitation above therefore
+applies to `physx` and `newton` checkpoints only; it is kept here because those are still the ones
+every number on this page was measured with.

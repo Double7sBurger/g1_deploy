@@ -52,8 +52,15 @@ Bring-up order and the remote-controller combos are in `README.md`. Two things w
 - **`N/M control steps would have been clamped` is expected**, and is not a reason to pass
   `--clamp_targets`. See `README.md`.
 - **`--dry_run` does not validate `--policy_physics`.** `build_default_pose()` is keyed by joint
-  name, so the ramp target is byte-identical under `physx` and `newton`. What validates the ordering
-  is the MuJoCo benchmark — a scrambled action order does not walk.
+  name, so the ramp target is byte-identical under all three layouts, `g1_29dof` included. What
+  validates the ordering is the MuJoCo benchmark — a scrambled action order does not walk. The
+  *gains* do differ: `g1_29dof` drives the four wrist pitch/yaw motors instead of holding them, so
+  their kd goes 1.0 → 10.0.
+- **A shape mismatch loading a checkpoint means the wrong `--policy_physics`.** `physx`/`newton` are
+  the superseded 37-joint USD (600-element observation); `g1_29dof` is the current robot description
+  (43 joints, 690). The gains, default pose and joint order for the last come from
+  `g1_deploy/data/g1_dr29_contract.json`, dumped with domain randomization off on purpose — a live
+  read of a randomized env returns one *sample* of each gain band, not the nominal.
 
 ## Two claims in the source that are not established
 
