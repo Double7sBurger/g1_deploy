@@ -82,7 +82,6 @@ class G1SimEnv:
         sim_dt: float = SIM_DT,
         decimation: int = DECIMATION,
         onscreen: bool = False,
-        key_callback=None,
         contact_timeconst: float = 0.0,
         body_mass_scale: dict[str, float] | None = None,
         integrator: str | None = None,
@@ -90,6 +89,7 @@ class G1SimEnv:
         joint_damping: float | None = None,
         align_legs_to_usd: str | None = None,
         command_delay_steps: int = 0,
+        key_callback=None,
     ):
         """Load the model and place the robot on the ground in its default pose.
 
@@ -100,8 +100,6 @@ class G1SimEnv:
             sim_dt: Physics timestep [s].
             decimation: Physics steps per :meth:`step_control` call.
             onscreen: Open a passive viewer tracking the pelvis.
-            key_callback: Called with a GLFW key code on every viewer keypress. Only meaningful with
-                ``onscreen``; the viewer owns the window and therefore the keyboard.
             contact_timeconst: Override every geom's ``solref`` time constant [s]; 0 keeps the
                 model's own value. This is a system-identification knob, not a model edit.
             body_mass_scale: Per-body mass and inertia multipliers, for system identification
@@ -126,6 +124,10 @@ class G1SimEnv:
                 the leg rest transforms and reproduces the USD's forward kinematics exactly (0.000 mm
                 across six joint configurations, four of them held out). See
                 :mod:`kinematics_align`.
+            key_callback: Passed straight to ``mujoco.viewer.launch_passive``; called with a GLFW
+                key code when the viewer window has focus. Used by
+                :class:`~g1_deploy.teleop.TeleopCommand` so the velocity command can be steered from
+                the window the operator is already looking at. Ignored unless ``onscreen``.
 
         Raises:
             ValueError: If the model's driven joints are not the expected 29, or a scaled body is
