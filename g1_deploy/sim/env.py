@@ -89,6 +89,7 @@ class G1SimEnv:
         joint_damping: float | None = None,
         align_legs_to_usd: str | None = None,
         command_delay_steps: int = 0,
+        key_callback=None,
     ):
         """Load the model and place the robot on the ground in its default pose.
 
@@ -123,6 +124,10 @@ class G1SimEnv:
                 the leg rest transforms and reproduces the USD's forward kinematics exactly (0.000 mm
                 across six joint configurations, four of them held out). See
                 :mod:`kinematics_align`.
+            key_callback: Passed straight to ``mujoco.viewer.launch_passive``; called with a GLFW
+                key code when the viewer window has focus. Used by
+                :class:`~g1_deploy.teleop.TeleopCommand` so the velocity command can be steered from
+                the window the operator is already looking at. Ignored unless ``onscreen``.
 
         Raises:
             ValueError: If the model's driven joints are not the expected 29, or a scaled body is
@@ -180,7 +185,9 @@ class G1SimEnv:
         self.torso_id = self.model.body("torso_link").id
         self.viewer = None
         if onscreen:
-            self.viewer = mujoco.viewer.launch_passive(self.model, self.data, show_left_ui=False, show_right_ui=False)
+            self.viewer = mujoco.viewer.launch_passive(
+                self.model, self.data, show_left_ui=False, show_right_ui=False, key_callback=key_callback
+            )
             self.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
             self.viewer.cam.trackbodyid = self.pelvis_id
             self.viewer.cam.distance = 2.5

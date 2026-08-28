@@ -20,8 +20,13 @@ The order matters and each step exists for a reason:
    expects. Handing control straight to a network from an arbitrary pose is a step in the position
    error and a torque spike.
 4. :func:`check_upright` -- if the ramp did not end with the robot standing, do not engage.
-5. :func:`damp_down` -- on exit, on a fall, and on Ctrl-C. Zero *gain*, nominal damping. Cutting
-   torque outright drops the robot; damping lets it settle.
+5. :func:`damp_down` -- on exit, on a fall, on Ctrl-C, and on :func:`check_abort`. Zero *gain*,
+   nominal damping. Cutting torque outright drops the robot; damping lets it settle.
+
+The G1 has **no hardware emergency stop**, so :func:`check_abort` is the stop: every loop that
+commands the robot reads the remote out of ``rt/lowstate`` and bails on the abort combo. See
+:mod:`g1_deploy.remote` for why this has to live in our own program rather than rely on the factory
+controller still listening.
 
 .. attention::
     :func:`clamp_to_joint_limits` is available but **off by default, and that is deliberate**. On a
@@ -79,8 +84,55 @@ JOINT_POS_LIMITS = np.array(
 )
 """``(lower, upper)`` per motor [rad], shape ``(29, 2)``."""
 
+MOTOR_NAMES = (
+    # ``G1JointIndex`` order, the names the official g1_29dof MJCF and URDF use.
+    "left_hip_pitch", "left_hip_roll", "left_hip_yaw", "left_knee", "left_ankle_pitch", "left_ankle_roll",
+    "right_hip_pitch", "right_hip_roll", "right_hip_yaw", "right_knee", "right_ankle_pitch", "right_ankle_roll",
+    "waist_yaw", "waist_roll", "waist_pitch",
+    "left_shoulder_pitch", "left_shoulder_roll", "left_shoulder_yaw", "left_elbow",
+    "left_wrist_roll", "left_wrist_pitch", "left_wrist_yaw",
+    "right_shoulder_pitch", "right_shoulder_roll", "right_shoulder_yaw", "right_elbow",
+    "right_wrist_roll", "right_wrist_pitch", "right_wrist_yaw",
+)
+"""Motor names in ``rt/lowstate`` order, for readable bring-up output."""
+
+RAMP_SPEED_WARN = 0.75
+"""Average ramp rate [rad/s] above which :func:`ramp_to_pose` warns.
+
+Not a limit -- there is no safe universal one, because how fast is too fast depends on what the
+robot is hanging from. It is a prompt to look: at 0.75 rad/s a joint crosses 43 deg per second, and
+anything much past that on a 35 kg humanoid is worth deciding on deliberately rather than by
+inheriting the 3 s default.
+"""
+
 UPRIGHT_GRAVITY_Z = -0.9
 """Projected-gravity z at or below which the robot counts as standing; -1.0 is perfectly upright."""
+
+
+class OperatorAbort(RuntimeError):
+    """Raised when the remote's abort combo is seen. Every caller must damp down."""
+
+
+def check_abort(link) -> None:
+    """Raise :class:`OperatorAbort` if the operator is holding an abort combo on the remote.
+
+    Called from every loop that commands the robot -- the ramp, the hold and the policy loop -- so
+    the stop works during the motion that most needs it rather than only once the policy is running.
+
+    Args:
+        link: A :class:`~g1_deploy.controller.G1ControlLink`.
+
+    Raises:
+        OperatorAbort: If :func:`~g1_deploy.remote.abort_pressed` matches.
+    """
+    from g1_deploy.remote import abort_pressed
+
+    state = link.state
+    if state is None:
+        return
+    combo = abort_pressed(state.wireless_remote)
+    if combo is not None:
+        raise OperatorAbort(f"operator pressed {combo} on the remote")
 
 
 def clamp_to_joint_limits(target: np.ndarray, margin: float = 0.05) -> tuple[np.ndarray, int]:
@@ -99,6 +151,68 @@ def clamp_to_joint_limits(target: np.ndarray, margin: float = 0.05) -> tuple[np.
     upper = JOINT_POS_LIMITS[:, 1] - margin
     clamped = np.clip(target, lower, upper)
     return clamped.astype(np.float32), int(np.count_nonzero(np.abs(clamped - target) > 1e-6))
+
+
+def lowcmd_traffic(seconds: float = 3.0) -> int:
+    """Count ``rt/lowcmd`` samples from *anyone else* over ``seconds``. Read-only.
+
+    The property that actually matters before commanding a robot is "is another writer on this
+    topic", and this measures it directly instead of inferring it from a mode name.
+
+    That distinction is not academic. On a G1 in debug mode the motion switcher keeps reporting the
+    previously selected mode -- measured: ``CheckMode() -> {'form': '0', 'name': 'ai'}`` -- while
+    ``rt/lowcmd`` is provably silent, because debug mode suspends the high-level service without
+    deselecting it. Believing the name means :func:`release_motion_mode` spins until it times out and
+    the run dies before it starts; believing the topic means you proceed, correctly.
+
+    Args:
+        seconds: Listening window.
+
+    Returns:
+        Samples observed. Zero means the topic is free.
+    """
+    from unitree_sdk2py.core.channel import ChannelSubscriber
+    from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_
+
+    count = {"n": 0}
+    sub = ChannelSubscriber("rt/lowcmd", LowCmd_)
+    sub.Init(lambda _msg: count.__setitem__("n", count["n"] + 1), 10)
+    time.sleep(seconds)
+    return count["n"]
+
+
+def take_lowcmd(probe_s: float = 3.0, timeout: float = 20.0) -> None:
+    """Make sure nothing else is writing ``rt/lowcmd``, releasing the factory controller if needed.
+
+    Evidence first, mode registry second:
+
+    1. Listen. If ``rt/lowcmd`` is silent, there is nothing to release -- which is the normal case
+       once the operator has put the robot in debug mode with the remote, and is a *better* state to
+       start from than a released one, because what the joints do after ``ReleaseMode()`` is not
+       documented anywhere while debug mode's damping is.
+    2. Only if somebody is writing, ask the motion switcher to release, then listen again.
+
+    Args:
+        probe_s: How long to listen each time.
+        timeout: Give up on releasing after this long [s].
+
+    Raises:
+        RuntimeError: If another writer is still there after the release. Do not command the robot.
+    """
+    print(f"[..] listening {probe_s:.0f}s for another writer on rt/lowcmd ...")
+    n = lowcmd_traffic(probe_s)
+    if n == 0:
+        print("[ok] rt/lowcmd is free -- nothing else is commanding the robot")
+        return
+    print(f"[!!] {n} rt/lowcmd samples from another writer; releasing the factory controller")
+    release_motion_mode(timeout)
+    n = lowcmd_traffic(probe_s)
+    if n:
+        raise RuntimeError(
+            f"still {n} rt/lowcmd samples from another writer after the release -- refusing to add"
+            " a second writer to the topic"
+        )
+    print("[ok] rt/lowcmd is free")
 
 
 def release_motion_mode(timeout: float = 20.0) -> None:
@@ -157,13 +271,107 @@ def ramp_to_pose(
     from g1_deploy.controller import read_joint_state
 
     start, _ = read_joint_state(link.wait_for_state(), len(target))
+    move = np.abs(target - start)
     steps = max(1, int(round(seconds / control_dt)))
-    print(f"[..] ramping to the start pose over {seconds:.1f}s  (max move {np.abs(target - start).max():.3f} rad)")
+    print(f"[..] ramping to the start pose over {seconds:.1f}s  (max move {move.max():.3f} rad)")
+    for j in np.argsort(move)[::-1][:3]:
+        if move[j] > 1e-3:
+            print(
+                f"       {j:2d} {MOTOR_NAMES[j]:<20s} {start[j]:+7.3f} -> {target[j]:+7.3f} rad"
+                f"  ({move[j] / seconds:5.2f} rad/s)"
+            )
+    # The robot starts wherever the factory controller left it, which on hardware is not knowable in
+    # advance -- a G1 parked sitting has to unfold a long way to reach this crouch. The ramp is a
+    # constant-rate interpolation, so a long move at a short duration is a fast move, and the whole
+    # point of ramping was to avoid handing the drives a step.
+    if move.max() / seconds > RAMP_SPEED_WARN:
+        print(
+            f"[warn] the ramp averages {move.max() / seconds:.2f} rad/s on the worst joint, above"
+            f" {RAMP_SPEED_WARN:.2f}. The robot is far from the start pose -- consider a longer"
+            " --ramp_s, and be sure it is supported."
+        )
     for k in range(steps):
+        check_abort(link)
         alpha = (k + 1) / steps
         blended, _ = clamp_to_joint_limits(start * (1.0 - alpha) + target * alpha)
         link.send(blended, kp, kd, mode_machine)
         time.sleep(control_dt)
+
+
+def hold_pose(
+    link, target: np.ndarray, kp: np.ndarray, kd: np.ndarray, mode_machine: int, control_dt: float,
+    seconds: float = 5.0
+) -> np.ndarray:
+    """Hold ``target`` for ``seconds`` and return the joint positions actually reached.
+
+    The bring-up equivalent of :func:`ramp_to_pose`'s destination: once the ramp is done, keep
+    commanding the same pose so the operator has time to look at the robot, then report where the
+    joints ended up.
+
+    Holding a fixed pose is not the same problem as standing. A hoisted robot has nothing to
+    balance, so the shipped gains hold this pose indefinitely -- the 1.5 s collapse in the README is
+    about a robot on its own feet, where ankle kp of 20 N·m/rad cannot keep the centre of mass over
+    the support polygon. Never run this with the feet loaded.
+
+    Args:
+        link: A :class:`~g1_deploy.controller.G1ControlLink`.
+        target: Joint positions to hold in motor order [rad], shape ``(29,)``.
+        kp: Gains [N·m/rad].
+        kd: Gains [N·m·s/rad].
+        mode_machine: Echoed from ``rt/lowstate``.
+        control_dt: Loop period [s].
+        seconds: How long to hold.
+
+    Returns:
+        Measured joint positions at the end of the hold [rad], shape ``(29,)``.
+    """
+    from g1_deploy.controller import read_joint_state
+
+    print(f"[..] holding the start pose for {seconds:.1f}s -- look at the robot now")
+    for _ in range(max(1, int(round(seconds / control_dt)))):
+        check_abort(link)
+        link.send(target, kp, kd, mode_machine)
+        time.sleep(control_dt)
+    reached, _ = read_joint_state(link.wait_for_state(), len(target))
+    return reached
+
+
+def report_tracking(target: np.ndarray, reached: np.ndarray, joint_names: list[str], worst: int = 6) -> float:
+    """Print how far each joint ended from its target, worst first.
+
+    What this proves: every motor answers, the gains hold the pose, and nothing is parked against a
+    stop. A dead motor, a miswired joint or a limit collision all show up as one large row.
+
+    .. attention::
+        What it does **not** prove is the policy's joint ordering. ``--policy_physics`` selects the
+        order of the policy's own observation and action vectors;
+        :func:`~g1_deploy.core.build_default_pose` is assembled by joint *name*, so it comes out
+        byte-identical under ``physx`` and ``newton`` and the ramp target is the same either way.
+        A wrong backend is invisible here and only bites once the policy is running. The thing that
+        actually validates it is the MuJoCo benchmark -- a scrambled action order does not walk.
+
+        Nor does a small error mean the pose is *correct*, only that it is the pose that was asked
+        for. Looking at the robot is not an optional extra step.
+
+    Args:
+        target: Commanded positions [rad], shape ``(29,)``.
+        reached: Measured positions [rad], shape ``(29,)``.
+        joint_names: Motor names in the same order.
+        worst: How many of the largest errors to print.
+
+    Returns:
+        The largest absolute error [rad].
+    """
+    error = np.abs(reached - target)
+    order = np.argsort(error)[::-1][:worst]
+    print(f"[..] joint tracking, worst {worst} of {len(error)}:")
+    for i in order:
+        print(
+            f"       {i:2d} {joint_names[i]:<24s} target {target[i]:+7.3f}  reached {reached[i]:+7.3f}"
+            f"  error {error[i]:+7.3f} rad ({np.rad2deg(error[i]):+6.1f} deg)"
+        )
+    print(f"[..] max error {error.max():.3f} rad, mean {error.mean():.3f} rad")
+    return float(error.max())
 
 
 def gravity_z(link) -> float:

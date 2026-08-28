@@ -8,3 +8,4 @@ dist/
 *.mp4
 *.pt
 *.onnx
+Miniconda3-latest-*.sh
