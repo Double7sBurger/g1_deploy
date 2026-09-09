@@ -6,6 +6,6 @@ dist/
 .venv/
 *.npz
 *.mp4
-*.pt
+# *.pt
 *.onnx
 Miniconda3-latest-*.sh
