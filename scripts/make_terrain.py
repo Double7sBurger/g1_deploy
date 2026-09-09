@@ -75,10 +75,17 @@ def build_tile(name: str, difficulty: float, cfg):
     """
     import trimesh
 
-    if name not in cfg.sub_terrains:
-        raise SystemExit(f"unknown terrain {name!r}; choose from {list(cfg.sub_terrains)}")
-    sub = cfg.sub_terrains[name].copy()
-    sub.size = cfg.size
+    if name == "flat":
+        # Isaac Lab's own plane generator rather than a hand-rolled quad, so the pad is the same
+        # thing the training config would produce if it listed one.
+        from isaaclab.terrains.trimesh.mesh_terrains_cfg import MeshPlaneTerrainCfg
+
+        sub = MeshPlaneTerrainCfg(size=cfg.size)
+    elif name not in cfg.sub_terrains:
+        raise SystemExit(f"unknown terrain {name!r}; choose from {list(cfg.sub_terrains)} or 'flat'")
+    else:
+        sub = cfg.sub_terrains[name].copy()
+        sub.size = cfg.size
 
     is_hf = hasattr(sub, "horizontal_scale")
     if is_hf:  # height-field config
@@ -97,7 +104,8 @@ def build_tile(name: str, difficulty: float, cfg):
     return trimesh.util.concatenate(meshes)
 
 
-def build_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = True):
+def build_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = True,
+               flat_cols: int = 0):
     """Tile sub-terrains into a grid, following ``TerrainGenerator``'s curriculum layout.
 
     Transcribed from ``terrain_generator.py``: the sub-terrain *type* is chosen per column from the
@@ -116,6 +124,11 @@ def build_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = T
         rows: Rows to generate. The full config is 10; fewer keeps the model small.
         cols: Columns to generate. The full config is 20.
         seed: Difficulty jitter seed.
+        flat_cols: Columns of Isaac Lab's own ``MeshPlaneTerrainCfg`` to splice into the middle. The
+            robot spawns at the grid's centre, so this is what it starts on -- it gets level ground
+            under its feet for the ramp and the first strides, and meets the generated terrain only
+            once it has walked off the pad. Without it the spawn lands on whatever tile happens to
+            be central, which on ``pyramid_stairs`` is a step.
 
     Returns:
         ``(mesh, size_x, size_y, layout)`` -- the combined mesh centred on the origin, its extent,
@@ -129,14 +142,19 @@ def build_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = T
     proportions /= proportions.sum()
     cumulative = np.cumsum(proportions)
 
+    # Column types first, then the flat pad spliced into the middle, so the generated columns keep
+    # the proportions TerrainGenerator would have given them.
+    column_types = [names[int(np.min(np.where(c / cols + 0.001 < cumulative)[0]))] for c in range(cols)]
+    if flat_cols > 0:
+        middle = len(column_types) // 2
+        column_types[middle:middle] = ["flat"] * flat_cols
+
     tiles, layout = [], []
-    for col in range(cols):
-        # Same expression as TerrainGenerator, with this grid's column count.
-        idx = int(np.min(np.where(col / cols + 0.001 < cumulative)[0]))
-        layout.append(names[idx])
+    for col, kind in enumerate(column_types):
+        layout.append(kind)
         for row in range(rows):
             difficulty = (row + rng.uniform()) / rows
-            tile = build_tile(names[idx], difficulty, cfg)
+            tile = build_tile(kind, difficulty, cfg)
             transform = np.eye(4)
             if types_along_x:
                 transform[0:2, -1] = (col + 0.5) * cfg.size[0], (row + 0.5) * cfg.size[1]
@@ -147,7 +165,8 @@ def build_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = T
             tiles.append(tile)
 
     combined = trimesh.util.concatenate(tiles)
-    nx, ny = (cols, rows) if types_along_x else (rows, cols)
+    total_cols = len(column_types)
+    nx, ny = (total_cols, rows) if types_along_x else (rows, total_cols)
     centre = np.eye(4)
     centre[:2, -1] = -cfg.size[0] * nx * 0.5, -cfg.size[1] * ny * 0.5
     combined.apply_transform(centre)
@@ -290,6 +309,9 @@ def main() -> int:
                     help="Generate a single tile of this sub-terrain instead of the grid.")
     ap.add_argument("--difficulty", type=float, default=0.5, help="Only with --terrain. 0 easiest, 1 hardest.")
     ap.add_argument("--seed", type=int, default=0, help="Difficulty jitter, as the generator uses it.")
+    ap.add_argument("--flat_cols", type=int, default=2,
+                    help="Columns of flat ground spliced into the grid centre, where the robot"
+                         " spawns. 0 disables it.")
     ap.add_argument("--isaac_layout", action="store_true",
                     help="Keep Isaac Lab's own axes: type along +Y, difficulty along +X. The default"
                          " transposes them so a robot walking forward crosses terrain types instead"
@@ -325,11 +347,14 @@ def main() -> int:
         print(f"[..] single tile: {args.terrain} at difficulty {args.difficulty}")
     else:
         mesh, sx, sy, layout = build_grid(cfg, args.rows, args.cols, args.seed,
-                                          types_along_x=not args.isaac_layout)
+                                          types_along_x=not args.isaac_layout,
+                                          flat_cols=args.flat_cols)
         axis_t, axis_d = ("+Y", "+X") if args.isaac_layout else ("+X", "+Y")
         print(f"[..] grid {args.rows} difficulty levels x {args.cols} terrain types,"
               f" {cfg.size[0]:.0f} m tiles")
         print(f"     type along {axis_t}: {' '.join(layout)}")
+        if args.flat_cols:
+            print(f"     spawn is on the {args.flat_cols * cfg.size[0]:.0f} m flat pad at the centre")
         print(f"     difficulty along {axis_d}: {1 / args.rows:.2f} to 1.00")
 
     verts = np.asarray(mesh.vertices, dtype=np.float64)

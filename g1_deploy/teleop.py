@@ -81,6 +81,12 @@ HELP = (
 )
 """One-line key map, printed at startup and on ``?``."""
 
+HELP_NO_STRAFE = (
+    "w/s forward +/-   q/e turn left/right   "
+    "space stop   r face current heading   x quit   ? help   [a/d locked]"
+)
+"""Key map with ``--no_strafe`` in force, where ``a``/``d`` do nothing."""
+
 # Terminal arrow keys arrive as three bytes; fold them onto the letter keys before dispatch.
 _ARROWS = {"\x1b[A": "w", "\x1b[B": "s", "\x1b[D": "a", "\x1b[C": "d"}
 

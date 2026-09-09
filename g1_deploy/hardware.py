@@ -336,6 +336,92 @@ def hold_pose(
     return reached
 
 
+def hold_until_confirmed(
+    link, target: np.ndarray, kp: np.ndarray, kd: np.ndarray, mode_machine: int, control_dt: float,
+    word: str = "go2", timeout: float = 300.0, countdown: float = 3.0, stream=None
+) -> np.ndarray:
+    """Hold ``target`` and keep publishing while the operator repositions the robot.
+
+    The gap this closes: between the ramp and engaging the policy there was nowhere to stand the
+    robot up, square its feet, or lower it onto the ground, because the only tool for pausing was
+    :func:`confirm` and that blocks. **Nothing sends ``rt/lowcmd`` while ``input()`` waits**, so on
+    hardware the motor watchdog times out and drops the robot -- which is why the original sequence
+    deliberately ran ramp, check and engage back to back.
+
+    So this pauses without stopping: the hold target goes out at the full control rate throughout,
+    stdin is polled rather than read, and the abort combo is checked every step. It is Unitree's own
+    pattern -- ``unitree_rl_gym`` holds the default pose and waits on a button while publishing --
+    and it is what makes lowering the hoist onto the feet a step you can take your time over.
+
+    Args:
+        link: A :class:`~g1_deploy.controller.G1ControlLink`.
+        target: Pose to hold in motor order [rad], shape ``(29,)``.
+        kp: Gains [N·m/rad].
+        kd: Gains [N·m·s/rad].
+        mode_machine: Echoed from ``rt/lowstate``.
+        control_dt: Loop period [s].
+        word: What the operator types to proceed. Anything else is ignored rather than treated as
+            consent, so a stray keypress cannot start the robot.
+        timeout: Give up holding after this long [s]. Not optional -- a hold with no end is a robot
+            cooking its own motors while nobody is watching.
+        countdown: Seconds between the confirmation and the policy taking over, still publishing.
+        stream: Input stream; ``sys.stdin`` by default.
+
+    Returns:
+        Measured joint positions at the end of the hold [rad], shape ``(29,)``.
+
+    Raises:
+        OperatorAbort: If the remote's abort combo is pressed.
+        TimeoutError: If ``word`` never arrives.
+    """
+    import select
+    import sys
+
+    from g1_deploy.controller import read_joint_state
+
+    handle = sys.stdin if stream is None else stream
+    interactive = False
+    try:
+        interactive = handle.isatty()
+    except (AttributeError, ValueError):
+        interactive = False
+
+    print(f"\n>>> HOLDING the start pose. Square the robot up, lower it onto its feet.")
+    print(f">>> Type '{word}' and press Enter when ready; the policy engages {countdown:.0f}s later.")
+    print(f">>> rt/lowcmd keeps flowing throughout, so there is no watchdog to race.")
+    if not interactive:
+        print("[warn] stdin is not a terminal; holding for the full timeout instead")
+
+    deadline = time.monotonic() + timeout
+    pending, confirmed_at = "", None
+    while True:
+        check_abort(link)
+        link.send(target, kp, kd, mode_machine)
+
+        if confirmed_at is not None:
+            if time.monotonic() - confirmed_at >= countdown:
+                break
+        elif interactive and select.select([handle], [], [], 0)[0]:
+            chunk = handle.readline()
+            if not chunk:
+                interactive = False
+            else:
+                pending += chunk
+                line, pending = pending.strip(), ""
+                if line == word:
+                    confirmed_at = time.monotonic()
+                    print(f"[ok] confirmed; engaging in {countdown:.0f}s -- hands clear")
+                elif line:
+                    print(f"[..] ignored {line!r}; type {word!r} to proceed")
+        elif time.monotonic() > deadline:
+            raise TimeoutError(f"{word!r} not received within {timeout:.0f}s of holding")
+
+        time.sleep(control_dt)
+
+    reached, _ = read_joint_state(link.wait_for_state(), len(target))
+    return reached
+
+
 def report_tracking(target: np.ndarray, reached: np.ndarray, joint_names: list[str], worst: int = 6) -> float:
     """Print how far each joint ended from its target, worst first.
 

@@ -99,6 +99,13 @@ def main() -> int:
     )
     parser.add_argument("--depth_port", type=int, default=None, help="UDP port to receive frames on.")
     parser.add_argument(
+        "--no_strafe",
+        action="store_true",
+        help="Pin vy to zero and ignore the lateral stick. Both distilled students track forward"
+        " commands but fail on lateral ones -- runaway one way, stalled the other -- so on hardware"
+        " a stick nudged sideways is a fall, not a strafe.",
+    )
+    parser.add_argument(
         "--depth_max_age",
         type=float,
         default=0.1,
@@ -213,6 +220,19 @@ def main() -> int:
     )
     parser.add_argument("--ramp_s", type=float, default=3.0, help="Ramp duration on hardware [s].")
     parser.add_argument(
+        "--align",
+        action="store_true",
+        help="After the ramp, hold the start pose and wait for a second confirmation before"
+        " engaging, so the robot can be squared up and lowered onto its feet. rt/lowcmd keeps"
+        " flowing the whole time -- this is a pause, not a stop, which is why it is safe where a"
+        " second input() prompt is not.",
+    )
+    parser.add_argument("--align_word", default="go2", help="What to type to leave the hold.")
+    parser.add_argument("--align_timeout", type=float, default=300.0,
+                        help="Give up holding after this long [s].")
+    parser.add_argument("--align_countdown", type=float, default=3.0,
+                        help="Seconds between the confirmation and the policy taking over.")
+    parser.add_argument(
         "--clamp_targets",
         action="store_true",
         help="Clamp joint targets into the mechanical travel. Off by default: the policy drives the"
@@ -279,7 +299,10 @@ def main() -> int:
 
     # Built before the simulator: with --sim sync --viz the viewer needs its key callback at
     # launch_passive time, and there is no way to attach one afterwards.
-    commander = tele.TeleopCommand(args.vx, args.vy, args.heading or 0.0)
+    commander = tele.TeleopCommand(
+        args.vx, 0.0 if args.no_strafe else args.vy, args.heading or 0.0,
+        vy_limits=(0.0, 0.0) if args.no_strafe else tele.VY_LIMITS,
+    )
     # A run without --duration is the normal way to teleop; n_steps None means "until Ctrl-C".
     n_steps = None if np.isinf(args.duration) else int(round(args.duration / core.CONTROL_DT))
     duration_txt = "unbounded" if n_steps is None else f"{args.duration:.0f}s"
@@ -397,6 +420,9 @@ def main() -> int:
                 if args.dry_run
                 else f">>> This ramps over {args.ramp_s:.1f}s and then runs the policy IMMEDIATELY"
                 f" for {duration_txt} at vx={args.vx:+.2f} vy={args.vy:+.2f}."
+                if not args.align
+                else f">>> This ramps over {args.ramp_s:.1f}s and then HOLDS, waiting for"
+                f" '{args.align_word}' before the policy engages."
             )
         )
         try:
@@ -410,6 +436,24 @@ def main() -> int:
             print(f"[FAIL] {exc}")
             hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
             return 1
+        if args.align and not args.dry_run:
+            try:
+                reached = hw.hold_until_confirmed(
+                    link, default_pose, kp, kd, mode_machine, core.CONTROL_DT,
+                    word=args.align_word, timeout=args.align_timeout,
+                    countdown=args.align_countdown,
+                )
+                hw.report_tracking(default_pose, reached, list(hw.MOTOR_NAMES), worst=3)
+                hw.check_upright(link)
+            except hw.OperatorAbort as exc:
+                print(f"[..] {exc}")
+                hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+                return 0
+            except (TimeoutError, RuntimeError) as exc:
+                print(f"[FAIL] {exc}")
+                hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+                return 1
+
         if args.dry_run:
             # Stop here, on purpose. The robot is in the pose the policy starts from and has been
             # asked to do nothing else -- which is the whole point: a dead motor, a joint against
@@ -455,9 +499,12 @@ def main() -> int:
         f"  cmd=({args.vx:+.2f}, {args.vy:+.2f}) m/s, heading {np.rad2deg(commander.heading):+.0f} deg"
     )
     if args.teleop:
-        print(f"[..] teleop: {tele.HELP}")
+        # Do not advertise a/d when they are pinned: a key map that lists a control it will not
+        # honour teaches the operator the wrong thing about what the robot can do.
+        print(f"[..] teleop: {tele.HELP_NO_STRAFE if args.no_strafe else tele.HELP}")
     if args.remote:
-        print("[..] remote sticks: left forward/left = vx/vy, right = turn.")
+        print("[..] remote sticks: left forward = vx, right = turn."
+              + ("  [vy LOCKED to 0]" if args.no_strafe else "  left sideways = vy."))
         print("     A centred stick HOLDS the last command, it does not zero it -- vx=0 is a fall")
         print("     for this policy, so letting go is not a stop. The stop is L2+B. Keep the hoist.")
 
