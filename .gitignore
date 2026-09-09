@@ -9,3 +9,4 @@ dist/
 # *.pt
 *.onnx
 Miniconda3-latest-*.sh
+MUJOCO_LOG.TXT

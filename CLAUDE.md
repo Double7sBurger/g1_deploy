@@ -39,6 +39,48 @@ Bring-up order and the remote-controller combos are in `README.md`. Two things w
   `hardware.take_lowcmd()` measures the topic instead of trusting the name — believing the name
   makes `release_motion_mode()` spin until it times out and the run dies before it starts.
 
+## Vision (depth students)
+
+`policies/<name>/` holds `policy.pt` + `contract.json`. The contract is authoritative and was dumped
+from a live env with domain randomization **off** — a randomized read returns one sample of each gain
+band, not the nominal (hip kp 146.7 instead of 200).
+
+Pipeline, all of it verified on this machine:
+
+| piece | where |
+|---|---|
+| camera-side crop + downsample + send | `scripts/depth_publisher.py`, runs on PC2 |
+| wire format, receiver, staleness | `g1_deploy/depth_link.py` |
+| preprocessing + policy wrapper | `g1_deploy/depth.py` |
+| MuJoCo depth rendering | `g1_deploy/sim/depth_camera.py` |
+| closed loop without hardware | `scripts/benchmark_depth_mujoco.py` |
+| watch the observation | `scripts/view_depth.py` |
+| Isaac Lab terrain for MuJoCo | `scripts/make_terrain.py` |
+
+- **Crop before downsampling.** The D435i here streams 89.6 x 58.7 deg; training was 87.0 x 58.8.
+  Resizing the full frame is a 3% horizontal compression that nothing downstream can detect — the
+  array is 38x64 either way.
+- **Run the camera above 50 Hz.** The driver's default 848x480 profile is 30 Hz; 90 is available on
+  USB3. At 30 the policy sees repeats and the depth history spans more wall time than the 3 x 20 ms
+  it trained on.
+- **uint16 millimetres on the wire, not float32 metres.** That is the sensor's native format, and
+  macOS caps a UDP datagram at 9216 bytes (`net.inet.udp.maxdgram`) — 64x38 float32 is 9748 and fails
+  to send.
+- **`--viz` needs `mjpython`** and coexists with the offscreen depth renderer, at a cost: 2887 frames
+  received without it, 1033 with.
+- **`view_depth.py` and the control loop contend for the UDP port.** Run one at a time.
+
+## Terrain
+
+`make_terrain.py` calls Isaac Lab's sub-terrain generators from `~/workspace/IsaacLab` (needs
+`lazy_loader trimesh scipy pyyaml pillow`; the orchestrator's `pxr` is not available and is not
+needed). Height fields become a MuJoCo `hfield`, meshes a mesh — **MuJoCo collides meshes by convex
+hull**, so rough ground as a mesh is one dome and scored 0% against 60% as an `hfield`.
+
+Not yet trustworthy: contacts are untuned and an `hfield` episode was seen reaching 13.56 m/s, which
+is the solver ejecting the robot. And whether the trained task uses stock `ROUGH_TERRAINS_CFG` is
+unverified.
+
 ## Things that are easy to get wrong
 
 - **This policy walks but cannot stand.** `--vx 0.0` falls in ~1.4 s, measured three times on the
@@ -78,6 +120,23 @@ repo contains one, and `unitree_mujoco` implements no equivalent — so the MuJo
 exercise it. That is why there is deliberately no operator prompt between the ramp and engaging the
 policy.
 
+## The depth student's lateral axis is broken
+
+`depth_student_w100` tracks forward commands at 0.8-0.96 of commanded speed and fails systematically
+the moment `vy != 0`: every `vy = -0.5` episode runs away at 2.1-2.4x, every `vy = +0.5` episode
+stalls. The teacher `ckpt/policy_newasset.pt` tracks all of them correctly in the same environment,
+on the same asset, through the same benchmark — so it is the distillation, not the plumbing.
+
+**Command forward only** (`--vy 0.0`) until that is resolved on the training side.
+
+Two things that were checked and are *not* the cause: the foot geometry (reproducing training's
+plate override moved survival 80% -> 86.7% and left the pattern untouched) and the heading controller
+(the hold suite's heading target is 0 for every episode).
+
+Not checked, and worth ruling out on the training machine: the contract records `obs_1d_dim` but not
+the observation *term order*. The 690-wide layout here is inherited from the old policy. Forward
+walking working argues it is right, but a subtle misordering would look exactly like this.
+
 ## Verifying a change
 
 Run all of these before claiming anything works. They are fast and they have caught real regressions.
@@ -96,7 +155,14 @@ echo go | python -u scripts/run_policy_loop.py --real --dry_run --policy ckpt/po
 python scripts/benchmark_mujoco.py --policy ckpt/policy.pt --suite hold --repeats 1 --workers 4 --out /tmp/b.npz
 ```
 
+```bash
+# vision closed loop; --blind is the control that proves the camera is being used
+python scripts/benchmark_depth_mujoco.py --episodes 15 --foot_plate
+```
+
 The benchmark number is the regression signal: any change that moves it has changed behaviour.
+For the vision benchmark, read **achieved/commanded speed**, not the survival rate — "survived" only
+means "did not fall", and a policy standing still through a walk command scores 100%.
 `ruff` is configured (`line-length = 120`) but not installed in `deploy`; keep lines under 120.
 
 Kill stray simulators between runs (`pkill -f run_sim_loop`) — they leak into the next test's domain.

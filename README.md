@@ -145,6 +145,111 @@ and stops the turn.
 Note that `space` is not a way to make the robot stand: at `vx = 0` this policy falls in about 2 s,
 for the asset reason below.
 
+## Vision policies
+
+A depth student reads the 690-value proprioception contract *and* a stack of three 64x38 depth
+frames. `policies/<name>/contract.json` carries everything needed to run one: joint order, default
+pose, gains, action scale, and the camera the frames must come from.
+
+### Where the frames come from
+
+The camera is a D435i on the robot's PC2 and `pyrealsense2` has no macOS build, so PC2 does the
+camera-side work and sends only what the policy consumes — 64x38 as uint16 millimetres, 4.9 kB per
+frame, 238 kB/s at 50 Hz. `run_sim_loop.py --depth` emits the **same wire format**, so the control
+loop cannot tell the simulator from the robot.
+
+```bash
+# on PC2
+python3 ~/depth_publisher.py --host 192.168.123.222
+
+# on the laptop
+python scripts/run_policy_loop.py --real \
+  --depth policies/depth_student_w100 --policy_physics g1_29dof \
+  --vx 0.4 --vy 0.0 --duration 20 --ramp_s 3.0 --action_limit 8 \
+  --domain_id 0 --interface en6
+```
+
+The publisher crops before downsampling, and that is not cosmetic. Measured on this robot the D435i
+streams **89.6 x 58.7 degrees** at 848x480 while the policy trained on **87.0 x 58.8**. Resizing the
+whole frame would squeeze 89.6 degrees of world into an image that means 87.0 — every array is still
+38x64, so nothing downstream can notice, and the policy reads terrain 3% narrower than it believes.
+Cropping to 810x480 first leaves 86.97 x 58.70, a residual of 0.03 degrees.
+
+Three things will stop a run rather than let it continue on bad input: the first frame must arrive
+before the operator is prompted (20 s), the newest frame must be under `--depth_max_age` (100 ms, five
+control periods), and the contract's joint order must match `--policy_physics`.
+
+### Rehearsing it
+
+```bash
+# terminal 1 — simulator, camera and the training foot geometry.  mjpython is required for --viz.
+mjpython scripts/run_sim_loop.py --domain_id 41 --interface lo0 --hoist_s 4 \
+  --viz --depth policies/depth_student_w100 --foot_plate
+
+# terminal 2
+python scripts/run_policy_loop.py --real --skip_release_mode \
+  --depth policies/depth_student_w100 --policy_physics g1_29dof \
+  --vx 0.5 --vy 0.0 --duration 20 --ramp_s 3 --domain_id 41 --interface lo0
+```
+
+`--viz` costs frames: 2887 received without it against 1033 with. Neither tripped the staleness
+guard here, but raise `--depth_max_age` if yours does.
+
+### Seeing what the policy sees
+
+The viewer shows the robot; this shows the observation, which is the thing that can be silently
+wrong.
+
+```bash
+python scripts/view_depth.py --port 5601
+```
+
+It binds the same port the control loop uses, so run it **before** the control loop or on its own.
+Expect a gradient from far at the top to near at the bottom, and a centre row near 1.7 m — that is
+flat ground under a camera 1.26 m up pitched 47.6 degrees down. Measured against a real D435i the
+per-row profile matched MuJoCo to 0.01 m at the image centre (1.79 against 1.80).
+
+### Closed loop without the robot
+
+```bash
+python scripts/benchmark_depth_mujoco.py --episodes 15 --foot_plate
+python scripts/benchmark_depth_mujoco.py --episodes 15 --foot_plate --blind   # control
+```
+
+**Read the speed ratio, not the survival rate.** "Survived" only means "did not fall", and a policy
+that stands still through a walk command scores 100% on it. For `depth_student_w100` on flat ground:
+80% survived sighted against 60% blind, but the tracking error is 0.70 m/s against commanded speeds
+of 0-1.12 m/s, and the failure is entirely lateral — `vy = 0` tracks at 0.8-0.96 of commanded, every
+`vy = -0.5` episode runs away at over twice commanded speed, and every `vy = +0.5` episode stalls.
+The teacher (`ckpt/policy_newasset.pt`) tracks all of them correctly in the same environment, so this
+is the distillation, not the benchmark. **Command forward only until that is fixed.**
+
+## Terrain
+
+`scripts/make_terrain.py` builds the training task's ground for MuJoCo using Isaac Lab's own
+generators — they are numpy and trimesh, so they import from a checkout without Isaac Sim. Only the
+orchestrator needs `pxr`; it just tiles sub-terrains by difficulty, so one tile is generated
+directly.
+
+```bash
+python scripts/make_terrain.py --list
+python scripts/make_terrain.py --terrain random_rough --difficulty 0.5 --out /tmp/rough.xml
+python scripts/benchmark_depth_mujoco.py --xml /tmp/rough.xml --episodes 5 --foot_plate
+```
+
+Height-field terrains are emitted as a MuJoCo `hfield` and mesh terrains as a mesh. That split
+matters: **MuJoCo collides a mesh by its convex hull**, which turns rough ground into a single dome —
+`random_rough` as a mesh scored 0% at 0.28 s per episode, and as an `hfield` 60%.
+
+Two caveats before trusting a number from this:
+
+- **The terrain is assumed, not verified.** This reads Isaac Lab's stock `ROUGH_TERRAINS_CFG`. Whether
+  `Isaac-Velocity-Rough-G1-29Dof-AirTime100-DepthDistill-W100` uses it is a question for the training
+  machine's `env_cfg.scene.terrain.terrain_generator`.
+- **The contacts are not tuned.** An `hfield` episode was observed reaching 13.56 m/s, which is the
+  solver ejecting the robot, not locomotion. Flat-ground numbers are usable; terrain numbers are not
+  yet.
+
 ## On the robot
 
 ### The stop, first

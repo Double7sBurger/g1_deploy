@@ -56,6 +56,23 @@ def main() -> int:
         " is always G1JointIndex.",
     )
     parser.add_argument("--viz", action="store_true", help="Open a viewer tracking the pelvis.")
+    parser.add_argument(
+        "--depth",
+        default=None,
+        metavar="EXPORT_DIR",
+        help="Also render the chest depth camera and publish it on the same UDP wire format"
+        " scripts/depth_publisher.py uses, so a vision student can be rehearsed against this"
+        " simulator with the identical receive path it will use on the robot.",
+    )
+    parser.add_argument("--depth_host", default="127.0.0.1", help="Where to send depth frames.")
+    parser.add_argument("--depth_port", type=int, default=None)
+    parser.add_argument(
+        "--foot_plate",
+        action="store_true",
+        help="Swap each foot's four contact spheres for the solid plate training uses. MuJoCo"
+        " cannot load the training USD; this reproduces the one override that governs lateral"
+        " stability.",
+    )
     parser.add_argument("--domain_id", type=int, default=1)
     parser.add_argument("--interface", default="lo")
     parser.add_argument("--contact_timeconst", type=float, default=0.005)
@@ -94,6 +111,27 @@ def main() -> int:
     core.set_policy_backend(args.policy_physics)
     ChannelFactoryInitialize(args.domain_id, args.interface)
 
+    # Build the model before the env so camera and foot-plate edits survive; G1SimEnv would
+    # otherwise reload the XML and drop them.
+    depth_pub = model = renderer = None
+    if args.depth is not None or args.foot_plate:
+        from pathlib import Path as _Path
+
+        from g1_deploy.sim.mjcf import compile_model, foot_plate_override, resolve_includes
+
+        root = resolve_includes(_Path(args.xml))
+        if args.foot_plate:
+            report = foot_plate_override(root)
+            n = sum(v["spheres_disabled"] for v in report.values())
+            print(f"[..] foot plate: {n} contact spheres disabled, one plate per foot")
+        if args.depth is not None:
+            from g1_deploy.sim.depth_camera import add_camera_element, contract_camera
+            from g1_deploy.depth import load_contract
+
+            spec = contract_camera(load_contract(args.depth))
+            add_camera_element(root, spec)
+        model = compile_model(root, args.xml)
+
     bridge = G1SimBridge(num_motors=core.NUM_ROBOT_MOTORS)
     mass_scale = {b: args.trunk_mass_scale for b in TRUNK_BODIES} if args.trunk_mass_scale != 1.0 else None
     env = G1SimEnv(
@@ -106,7 +144,19 @@ def main() -> int:
         body_mass_scale=mass_scale,
         align_legs_to_usd=args.align_legs_to_usd,
         command_delay_steps=args.command_delay_steps,
+        model=model,
     )
+    if args.depth is not None:
+        import socket
+
+        from g1_deploy.depth_link import DEFAULT_PORT, pack_frame
+        from g1_deploy.sim.depth_camera import DepthRenderer
+
+        renderer = DepthRenderer(env.model, spec)
+        depth_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        depth_dest = (args.depth_host, args.depth_port or DEFAULT_PORT)
+        print(f"[..] publishing {spec['width']}x{spec['height']} depth to"
+              f" {depth_dest[0]}:{depth_dest[1]}")
     default_pose = build_default_pose()
     root_z = env.reset(default_pose)
     print(
@@ -119,6 +169,9 @@ def main() -> int:
     # Freeze at the reset pose until a controller connects; see G1SimEnv.publish_only for why a PD
     # hold is not an option. Without this the robot is flat on the floor by the time a controller
     # finishes importing torch, and every run reads as an instant failure.
+    viewer_every = max(1, int(round(0.02 / SIM_DT)))
+    frozen_frame = 0
+    depth_seq = [0]
     while not bridge.cmd_received:
         if env.viewer is not None:
             if not env.viewer.is_running():
@@ -126,11 +179,19 @@ def main() -> int:
                 return 0
             env.viewer.sync()
         env.publish_only()
+        if renderer is not None and frozen_frame % viewer_every == 0:
+            # Publish while frozen as well. A real camera streams from power-on; making the
+            # simulator's camera wait for rt/lowcmd would force the controller to wait for its
+            # first frame *after* the ramp, opening exactly the rt/lowcmd gap the ramp exists to
+            # avoid. Throttled to the control rate: rendering every 2 ms physics step floods the
+            # receiver's socket buffer and shows up as a 10% drop rate on loopback.
+            depth_sock.sendto(pack_frame(depth_seq[0], renderer.render(env.data)), depth_dest)
+            depth_seq[0] += 1
+        frozen_frame += 1
         time.sleep(SIM_DT)
     print(f"[ok] controller connected at t={env.data.time:.2f}s, physics running")
 
     step = 0
-    viewer_every = max(1, int(round(0.02 / SIM_DT)))
     hoist_steps = int(round(args.hoist_s / SIM_DT))
     hoist_z = float(env.data.qpos[2])
     if hoist_steps:
@@ -145,6 +206,11 @@ def main() -> int:
                 print(f"[..] hoist released at t={env.data.time:.2f}s")
             env.sim_step()
             step += 1
+            if renderer is not None and step % viewer_every == 0:
+                # One frame per control period. The real camera runs faster and the controller takes
+                # the freshest, but publishing more often here would only burn render time.
+                depth_sock.sendto(pack_frame(depth_seq[0], renderer.render(env.data)), depth_dest)
+                depth_seq[0] += 1
             if env.viewer is not None and step % viewer_every == 0:
                 env.viewer.sync()
             if args.reset_on_fall and env.data.qpos[2] < args.fall_height:
@@ -157,6 +223,9 @@ def main() -> int:
     except KeyboardInterrupt:
         print("\n[..] interrupted")
     finally:
+        if renderer is not None:
+            renderer.close()
+            depth_sock.close()
         env.close()
 
     elapsed = time.monotonic() - start

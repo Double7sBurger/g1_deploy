@@ -63,6 +63,10 @@ SIM_DT = 0.002
 DEFAULT_XML = Path.home() / "workspace/unitree_mujoco/unitree_robots/g1/scene_29dof.xml"
 """Flat-ground 29-DoF G1 scene. Not ``scene.xml``, which terrain_tool rewrote into an obstacle course."""
 
+class DepthStale(RuntimeError):
+    """The depth stream went quiet. Every caller must damp down."""
+
+
 DOMAIN_PROBE_S = 1.0
 """Seconds to listen for a pre-existing ``rt/lowstate`` before starting an in-process simulator.
 
@@ -81,7 +85,27 @@ closed for system identification without touching the asset.
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--policy", required=True, help="TorchScript policy exported by isaaclab play.")
+    parser.add_argument("--policy", default=None,
+                        help="TorchScript policy exported by isaaclab play. Omit when --depth is"
+                             " given; the export directory holds its own policy.pt.")
+    parser.add_argument(
+        "--depth",
+        default=None,
+        metavar="EXPORT_DIR",
+        help="Run a vision student from this export directory (policy.pt + contract.json). Depth"
+        " frames arrive over UDP from scripts/depth_publisher.py on the robot's PC2, or from"
+        " run_sim_loop.py --depth in rehearsal -- the same wire format either way, so the control"
+        " loop cannot tell the camera from the simulator.",
+    )
+    parser.add_argument("--depth_port", type=int, default=None, help="UDP port to receive frames on.")
+    parser.add_argument(
+        "--depth_max_age",
+        type=float,
+        default=0.1,
+        help="Abort if the newest depth frame is older than this [s]. Five control periods by"
+        " default. Without it a dead publisher is invisible: the receiver keeps returning its last"
+        " frame and the policy walks on terrain that stopped existing seconds ago.",
+    )
     parser.add_argument(
         "--policy_physics",
         choices=("physx", "newton", "g1_29dof"),
@@ -221,9 +245,33 @@ def main() -> int:
         parser.error("--remote reads the robot's own controller out of rt/lowstate; it needs --real")
     if args.duration < 0:
         parser.error("--duration must be >= 0, or 'inf' to run until stopped")
+    if (args.policy is None) == (args.depth is None):
+        parser.error("give exactly one of --policy or --depth")
 
     core.set_policy_backend(args.policy_physics)
-    policy = load_policy(args.policy)
+    contract = depth_frames = None
+    if args.depth is None:
+        policy = load_policy(args.policy)
+    else:
+        from g1_deploy import depth_link as dl
+        from g1_deploy.depth import load_contract, load_depth_policy
+
+        contract = load_contract(args.depth)
+        if list(contract["joint_names"]) != list(core.POLICY_JOINT_NAMES):
+            raise SystemExit(
+                f"--depth export was trained on a different joint order than --policy_physics"
+                f" {args.policy_physics}; every target would land on the wrong motor"
+            )
+        policy = load_depth_policy(str(Path(args.depth) / "policy.pt"), contract)
+        shape = (int(contract["depth_shape"][1]), int(contract["depth_shape"][2]))
+        depth_frames = dl.DepthReceiver(shape, port=args.depth_port or dl.DEFAULT_PORT)
+        print(f"[..] depth {shape[1]}x{shape[0]} on UDP {args.depth_port or dl.DEFAULT_PORT},"
+              " waiting for the first frame ...")
+        # Up front, before anything is prompted or ramped. A missing camera should stop the run
+        # while the robot is still untouched, and waiting for it later would put a stall between
+        # the ramp and engaging the policy -- the one place this loop must never pause.
+        depth_frames.wait_for_frame(timeout=20.0)
+        print(f"[ok] depth stream live ({depth_frames.received} frames)")
     default_pose = build_default_pose()
     kp, kd = core.control_gains()
 
@@ -386,7 +434,12 @@ def main() -> int:
         commander.face(measured)
         print(f"[..] heading target seeded from the robot: {np.rad2deg(measured):+.1f} deg (world)")
 
-    runner = core.G1PolicyRunner(policy)
+    if args.depth is None:
+        runner = core.G1PolicyRunner(policy)
+    else:
+        from g1_deploy.depth import G1DepthPolicyRunner
+
+        runner = G1DepthPolicyRunner(policy, contract)
     runner.reset()
 
     physics = (
@@ -396,7 +449,7 @@ def main() -> int:
         f"  solref {env.model.geom_solref[1, 0]:.4f}  root_z {root_z:.3f} m"
     )
     print(
-        f"[..] {Path(args.policy).parent.name}  mode={args.sim}  order={args.policy_physics}"
+        f"[..] {Path(args.policy or args.depth).name}  mode={args.sim}  order={args.policy_physics}"
         f"  mode_machine={mode_machine}\n"
         f"     {physics}  policy at {1 / core.CONTROL_DT:.0f} Hz"
         f"  cmd=({args.vx:+.2f}, {args.vy:+.2f}) m/s, heading {np.rad2deg(commander.heading):+.0f} deg"
@@ -442,7 +495,18 @@ def main() -> int:
                 # teleoperated run stays on the same distribution a fixed --heading run is on.
                 command = commander.as_array(quat)
 
-                target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
+                if args.depth is None:
+                    target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
+                else:
+                    frame, age = depth_frames.latest()
+                    if age > args.depth_max_age:
+                        raise DepthStale(
+                            f"newest depth frame is {age * 1000:.0f} ms old, over the"
+                            f" {args.depth_max_age * 1000:.0f} ms limit"
+                            f" ({depth_frames.received} received, {depth_frames.dropped} dropped)"
+                        )
+                    target, _ = runner.step(q, dq, quat, gyro, command, frame,
+                                            action_limit=args.action_limit)
                 target[core.UNMAPPED_ROBOT_MOTORS] = 0.0
                 if args.real:
                     safe, n_clamped = hw.clamp_to_joint_limits(target)
@@ -497,12 +561,20 @@ def main() -> int:
         print("\n[..] interrupted")
     except hw.OperatorAbort as exc:
         print(f"\n[..] {exc}")
+    except DepthStale as exc:
+        # Treated exactly like the operator abort: the policy has lost an input it needs, and
+        # carrying on with a frozen image is worse than stopping.
+        print(f"\n[FAIL] {exc}")
     finally:
         if args.real:
             # Every exit path damps: normal end, fall, operator Ctrl-C, or an exception mid-loop.
             hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
         if env is not None:
             env.close()
+        if depth_frames is not None:
+            print(f"[..] depth: {depth_frames.received} received,"
+                  f" {depth_frames.dropped} dropped, {depth_frames.rejected} rejected")
+            depth_frames.close()
 
     steps_done = k + 1
     survived = fell_at if fell_at is not None else steps_done * core.CONTROL_DT

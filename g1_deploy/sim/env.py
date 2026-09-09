@@ -90,6 +90,7 @@ class G1SimEnv:
         align_legs_to_usd: str | None = None,
         command_delay_steps: int = 0,
         key_callback=None,
+        model: mujoco.MjModel | None = None,
     ):
         """Load the model and place the robot on the ground in its default pose.
 
@@ -124,6 +125,9 @@ class G1SimEnv:
                 the leg rest transforms and reproduces the USD's forward kinematics exactly (0.000 mm
                 across six joint configurations, four of them held out). See
                 :mod:`kinematics_align`.
+            model: Pre-compiled model to use instead of loading ``xml_path``. ``xml_path`` is still
+                read for its directory when resolving assets, so pass the same file it was built
+                from.
             key_callback: Passed straight to ``mujoco.viewer.launch_passive``; called with a GLFW
                 key code when the viewer window has focus. Used by
                 :class:`~g1_deploy.teleop.TeleopCommand` so the velocity command can be steered from
@@ -133,7 +137,10 @@ class G1SimEnv:
             ValueError: If the model's driven joints are not the expected 29, or a scaled body is
                 absent.
         """
-        self.model = mujoco.MjModel.from_xml_path(xml_path)
+        # A caller that has already edited the MJCF -- to attach a depth camera, or to swap the
+        # foot spheres for the plate training uses -- passes the compiled result in rather than
+        # having it reloaded from disk and losing those edits.
+        self.model = mujoco.MjModel.from_xml_path(xml_path) if model is None else model
         self.model.opt.timestep = sim_dt
         if integrator is not None:
             self.model.opt.integrator = {
@@ -224,9 +231,16 @@ class G1SimEnv:
             for g in range(self.model.ngeom)
             if self.model.geom_bodyid[g] != 0 and self.model.geom_type[g] != mujoco.mjtGeom.mjGEOM_PLANE
         ]
-        self.data.qpos[2] = 1.0
+        # Measure the ground under the spawn rather than assuming z=0: on generated terrain the
+        # surface is metres away from it, and spawning into the mesh is indistinguishable from the
+        # policy falling over immediately.
+        from g1_deploy.sim.mjcf import ground_height
+
+        surface = ground_height(self.model, 0.0, 0.0)
+        self.data.qpos[2] = surface + 1.0
         mujoco.mj_forward(self.model, self.data)
-        self.data.qpos[2] = 1.0 - float(self.data.geom_xpos[robot_geoms, 2].min()) + 0.002
+        drop = float(self.data.geom_xpos[robot_geoms, 2].min()) - surface
+        self.data.qpos[2] = surface + 1.0 - drop + 0.002
         mujoco.mj_forward(self.model, self.data)
         return float(self.data.qpos[2])
 
