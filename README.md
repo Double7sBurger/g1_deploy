@@ -176,8 +176,15 @@ whole frame would squeeze 89.6 degrees of world into an image that means 87.0 â€
 Cropping to 810x480 first leaves 86.97 x 58.70, a residual of 0.03 degrees.
 
 Three things will stop a run rather than let it continue on bad input: the first frame must arrive
-before the operator is prompted (20 s), the newest frame must be under `--depth_max_age` (100 ms, five
+before the operator is prompted (20 s), the newest frame must be under `--depth_max_age` (200 ms, ten
 control periods), and the contract's joint order must match `--policy_physics`.
+
+That 200 ms is measured, not guessed: the worst frame age seen in rehearsal is **32 ms**, across flat
+and generated terrain, with and without a viewer, and with the policy running in the same process.
+The limit started at 100 ms because five control periods sounded reasonable, and a lone hiccup
+tripped it at 103 ms with zero frames dropped â€” a limit three times the observed worst case is too
+tight to survive one stall. Every run now prints the age distribution, so a trip can be read as
+either an outlier (`p99.9` far below the limit) or a machine that cannot keep up (`p99.9` near it).
 
 ### Rehearsing it
 

@@ -69,6 +69,11 @@ Pipeline, all of it verified on this machine:
 - **`--viz` needs `mjpython`** and coexists with the offscreen depth renderer, at a cost: 2887 frames
   received without it, 1033 with.
 - **`view_depth.py` and the control loop contend for the UDP port.** Run one at a time.
+- **`--depth_max_age` defaults to 200 ms, from measurement.** Worst frame age in rehearsal is 32 ms
+  (flat and generated terrain, with and without a viewer, policy in the same process). The original
+  100 ms was a guess and a single hiccup tripped it at 103 ms with **zero** frames dropped. Each run
+  prints the age distribution: `p99.9` far below the limit means an outlier, `p99.9` near it means
+  the limit is wrong for that machine.
 
 ## Terrain
 

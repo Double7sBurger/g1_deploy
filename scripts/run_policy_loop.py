@@ -99,6 +99,18 @@ def main() -> int:
     )
     parser.add_argument("--depth_port", type=int, default=None, help="UDP port to receive frames on.")
     parser.add_argument(
+        "--blind",
+        choices=("off", "far", "frozen"),
+        default="off",
+        help="Substitute a constant depth frame to measure what the camera is worth, on the same"
+        " code path the robot runs. 'frozen' holds the first frame received -- a real image of the"
+        " actual scene, in distribution, carrying no *changing* terrain, which is the fair control."
+        " 'far' is max range everywhere: simpler, but an all-far frame never occurred in training,"
+        " so it tests an out-of-distribution input as much as it tests blindness. Frames keep"
+        " arriving and the staleness guard keeps watching either way, so this measures the policy,"
+        " not the link.",
+    )
+    parser.add_argument(
         "--no_strafe",
         action="store_true",
         help="Pin vy to zero and ignore the lateral stick. Both distilled students track forward"
@@ -108,10 +120,13 @@ def main() -> int:
     parser.add_argument(
         "--depth_max_age",
         type=float,
-        default=0.1,
-        help="Abort if the newest depth frame is older than this [s]. Five control periods by"
-        " default. Without it a dead publisher is invisible: the receiver keeps returning its last"
-        " frame and the policy walks on terrain that stopped existing seconds ago.",
+        default=0.2,
+        help="Abort if the newest depth frame is older than this [s]. Ten control periods, which is"
+        " about six times the worst age measured in rehearsal -- 32 ms, over flat and generated"
+        " terrain, with and without a viewer, and with the policy running in the same process. The"
+        " earlier 0.1 was picked because five periods sounded reasonable, and a single hiccup"
+        " tripped it at 103 ms. Without any limit a dead publisher is invisible: the receiver keeps"
+        " returning its last frame and the policy walks on terrain that stopped existing.",
     )
     parser.add_argument(
         "--policy_physics",
@@ -263,6 +278,8 @@ def main() -> int:
         parser.error("--dry_run is a hardware sequence; it needs --real (add --skip_release_mode to rehearse in sim)")
     if args.remote and not args.real:
         parser.error("--remote reads the robot's own controller out of rt/lowstate; it needs --real")
+    if args.blind != "off" and args.depth is None:
+        parser.error("--blind only means something with --depth")
     if args.duration < 0:
         parser.error("--duration must be >= 0, or 'inf' to run until stopped")
     if (args.policy is None) == (args.depth is None):
@@ -498,16 +515,24 @@ def main() -> int:
         f"     {physics}  policy at {1 / core.CONTROL_DT:.0f} Hz"
         f"  cmd=({args.vx:+.2f}, {args.vy:+.2f}) m/s, heading {np.rad2deg(commander.heading):+.0f} deg"
     )
+    help_text = tele.HELP_NO_STRAFE if args.no_strafe else tele.HELP
     if args.teleop:
         # Do not advertise a/d when they are pinned: a key map that lists a control it will not
         # honour teaches the operator the wrong thing about what the robot can do.
-        print(f"[..] teleop: {tele.HELP_NO_STRAFE if args.no_strafe else tele.HELP}")
+        print(f"[..] teleop: {help_text}")
     if args.remote:
         print("[..] remote sticks: left forward = vx, right = turn."
               + ("  [vy LOCKED to 0]" if args.no_strafe else "  left sideways = vy."))
         print("     A centred stick HOLDS the last command, it does not zero it -- vx=0 is a fall")
         print("     for this policy, so letting go is not a stop. The stop is L2+B. Keep the hoist.")
 
+    depth_ages: list[float] = []
+    blind_frame = None
+    if args.depth is not None and args.blind == "far":
+        blind_frame = np.full(
+            (int(contract["depth_shape"][1]), int(contract["depth_shape"][2])),
+            float(contract["depth_max_range_m"]), dtype=np.float32,
+        )
     wall_start = time.monotonic()
     fell_at = None
     clamped_steps = 0
@@ -523,7 +548,10 @@ def main() -> int:
                 if args.teleop:
                     for key in keys.poll():
                         if key == "?":
-                            print(f"[..] {tele.HELP}")
+                            # The locked key map, not the full one -- and the live command with it,
+                            # since "what is it doing right now" is the question '?' is really asked
+                            # for on a robot that is already walking.
+                            print(f"[..] {help_text}\n[..] {commander.status()}")
                         commander.handle(key)
                     status = commander.status_if_changed()
                     if status is not None:
@@ -546,12 +574,22 @@ def main() -> int:
                     target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
                 else:
                     frame, age = depth_frames.latest()
+                    depth_ages.append(age)
                     if age > args.depth_max_age:
                         raise DepthStale(
                             f"newest depth frame is {age * 1000:.0f} ms old, over the"
                             f" {args.depth_max_age * 1000:.0f} ms limit"
                             f" ({depth_frames.received} received, {depth_frames.dropped} dropped)"
                         )
+                    # Substituted *after* the staleness check above, never before: a blind run must
+                    # still abort if the publisher dies, or it would only prove that a constant
+                    # array keeps the robot upright.
+                    if args.blind == "far":
+                        frame = blind_frame
+                    elif args.blind == "frozen":
+                        if blind_frame is None:
+                            blind_frame = frame.copy()
+                        frame = blind_frame
                     target, _ = runner.step(q, dq, quat, gyro, command, frame,
                                             action_limit=args.action_limit)
                 target[core.UNMAPPED_ROBOT_MOTORS] = 0.0
@@ -619,8 +657,18 @@ def main() -> int:
         if env is not None:
             env.close()
         if depth_frames is not None:
-            print(f"[..] depth: {depth_frames.received} received,"
-                  f" {depth_frames.dropped} dropped, {depth_frames.rejected} rejected")
+            line = (f"[..] depth: {depth_frames.received} received,"
+                    f" {depth_frames.dropped} dropped, {depth_frames.rejected} rejected")
+            if depth_ages:
+                # Frame age is what the staleness guard trips on, so report the distribution rather
+                # than only the trip. A p99.9 well under the limit means a lone outlier stopped the
+                # run; a p99.9 near it means the limit is simply too tight for this machine.
+                ms = np.sort(np.asarray(depth_ages)) * 1e3
+                line += (f"\n     frame age ms: p50 {ms[len(ms) // 2]:.0f}"
+                         f"  p99 {ms[int(len(ms) * 0.99)]:.0f}"
+                         f"  p99.9 {ms[int(len(ms) * 0.999)]:.0f}  max {ms[-1]:.0f}"
+                         f"  (limit {args.depth_max_age * 1e3:.0f})")
+            print(line)
             depth_frames.close()
 
     steps_done = k + 1
