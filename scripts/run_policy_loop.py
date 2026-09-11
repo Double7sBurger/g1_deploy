@@ -288,7 +288,27 @@ def main() -> int:
     core.set_policy_backend(args.policy_physics)
     contract = depth_frames = None
     if args.depth is None:
-        policy = load_policy(args.policy)
+        # A directory is an export: policy.pt beside the contract it was trained under. The action
+        # scale is the part that matters here -- the ms line replaced the blanket 0.5 with a
+        # per-joint table, and driving such a policy at 0.5 asks the hip for four and a half times
+        # the angle it learned to ask for, silently.
+        source = Path(args.policy)
+        if source.is_dir():
+            import json
+
+            with open(source / "contract.json") as handle:
+                contract = json.load(handle)
+            if list(contract["joint_names"]) != list(core.POLICY_JOINT_NAMES):
+                raise SystemExit(
+                    f"{source.name} was trained on a different joint order than --policy_physics"
+                    f" {args.policy_physics}; every target would land on the wrong motor"
+                )
+            core.set_action_scale(contract["action_scale"])
+            policy = load_policy(str(source / "policy.pt"))
+            print(f"[..] {source.name}: action scale from the contract, "
+                  f"{'per-joint' if isinstance(contract['action_scale'], dict) else contract['action_scale']}")
+        else:
+            policy = load_policy(args.policy)
     else:
         from g1_deploy import depth_link as dl
         from g1_deploy.depth import load_contract, load_depth_policy
@@ -299,6 +319,11 @@ def main() -> int:
                 f"--depth export was trained on a different joint order than --policy_physics"
                 f" {args.policy_physics}; every target would land on the wrong motor"
             )
+        # Same trap as the --policy path: the ms line's students carry a per-joint action scale,
+        # and the default 0.5 would ask the hip for four and a half times the angle, silently.
+        core.set_action_scale(contract["action_scale"])
+        print(f"[..] {Path(args.depth).name}: action scale from the contract, "
+              f"{'per-joint' if isinstance(contract['action_scale'], dict) else contract['action_scale']}")
         policy = load_depth_policy(str(Path(args.depth) / "policy.pt"), contract)
         shape = (int(contract["depth_shape"][1]), int(contract["depth_shape"][2]))
         depth_frames = dl.DepthReceiver(shape, port=args.depth_port or dl.DEFAULT_PORT)

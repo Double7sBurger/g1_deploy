@@ -30,6 +30,8 @@ anatomical left-leg/right-leg sequence silently drives the wrong motors.
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 
 ##
@@ -260,8 +262,43 @@ for _name, _value in _DEFAULT_JOINT_POS_BY_NAME.items():
 CONTROL_DT = 0.02
 """Policy period [s]: Isaac Lab's ``physics_dt`` 0.005 times ``decimation`` 4, i.e. 50 Hz."""
 
-ACTION_SCALE = 0.5
-"""``JointPositionActionCfg.scale``; the target is ``default + scale * action``."""
+ACTION_SCALE: float | np.ndarray = 0.5
+"""``JointPositionActionCfg.scale``; the target is ``default + scale * action``.
+
+A scalar for every policy trained before 2026-09-10. The ``ms`` line replaced it with a per-joint
+table -- ``0.25 * effort_limit / stiffness``, which is 0.11 on the hip and 0.625 on the ankle -- so a
+policy from that line driven at a flat 0.5 asks the hip for four and a half times the angle it was
+trained to ask for. :func:`set_action_scale` installs the per-joint vector from a contract; the
+mismatch is silent, so it is worth checking the contract rather than assuming.
+"""
+
+
+def set_action_scale(scale, joint_names=None) -> None:
+    """Install the action scale from a training contract.
+
+    Args:
+        scale: Either a single number, or a mapping from joint-name regular expression to number as
+            ``JointPositionActionCfg.scale`` stores it.
+        joint_names: Policy joint order the vector is built against. Defaults to the active order.
+
+    Raises:
+        ValueError: If a mapping leaves any joint unmatched, which would otherwise scale it by zero.
+    """
+    global ACTION_SCALE
+
+    if not isinstance(scale, dict):
+        ACTION_SCALE = float(scale)
+        return
+    names = list(joint_names if joint_names is not None else POLICY_JOINT_NAMES)
+    vector = np.full(len(names), np.nan, dtype=np.float32)
+    for pattern, value in scale.items():
+        for i, name in enumerate(names):
+            if re.fullmatch(pattern, name):
+                vector[i] = float(value)
+    missing = [n for n, v in zip(names, vector) if not np.isfinite(v)]
+    if missing:
+        raise ValueError(f"the action scale leaves {len(missing)} joints unmatched, first {missing[:4]}")
+    ACTION_SCALE = vector
 
 HISTORY_LENGTH = 5
 """Frames stacked per observation term, oldest first."""
