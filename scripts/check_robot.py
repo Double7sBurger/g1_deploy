@@ -174,10 +174,25 @@ def main() -> int:
 
     # ---- posture -----------------------------------------------------------------------------
     quat = np.asarray(msg.imu_state.quaternion[:4], dtype=np.float32)
-    g_z = float(core.quat_apply_inverse_wxyz(quat, np.array([0.0, 0.0, -1.0], np.float32))[2])
+    grav = core.quat_apply_inverse_wxyz(quat, np.array([0.0, 0.0, -1.0], np.float32))
+    g_x, g_y, g_z = (float(v) for v in grav)
     upright = g_z <= hw.UPRIGHT_GRAVITY_Z
     up_txt = "upright" if upright else "NOT upright"
     print(f"[{'ok' if upright else '!!'}] gravity_z = {g_z:+.3f} ({up_txt}; -1.0 is vertical)")
+    # z alone cannot see a small tilt -- three degrees off level still reads -0.999. The x and y
+    # components are the tilt, and they are the whole of the policy's attitude input: the observation
+    # is this vector, so any offset between the IMU's zero and the pelvis frame the policy trained in
+    # is held as a body tilt of the same size, forever. On level ground in the default pose this
+    # should read (0.000, 0.000, -1.000); whatever it reads instead is the offset to take out.
+    pitch = float(np.degrees(np.arctan2(g_x, np.hypot(g_y, g_z))))
+    roll = float(np.degrees(np.arctan2(-g_y, -g_z)))
+    level = max(abs(pitch), abs(roll)) <= 1.0
+    print(f"[{'ok' if level else '??'}] projected_gravity = ({g_x:+.3f}, {g_y:+.3f}, {g_z:+.3f})"
+          f"  ->  pitch {pitch:+.2f} deg, roll {roll:+.2f} deg"
+          f"  ({'level' if level else 'IMU-to-pelvis offset, or the floor is not level'})")
+    if not level:
+        print(f"        if the floor is level and the robot is in its default pose, take it out with"
+              f"  --imu_tilt {pitch:.2f},{roll:.2f}")
 
     # ---- where the ramp would have to go -----------------------------------------------------
     from g1_deploy.controller import read_joint_state

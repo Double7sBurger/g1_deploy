@@ -235,6 +235,14 @@ def main() -> int:
     )
     parser.add_argument("--ramp_s", type=float, default=3.0, help="Ramp duration on hardware [s].")
     parser.add_argument(
+        "--imu_tilt",
+        default=None,
+        metavar="PITCH,ROLL",
+        help="IMU-to-pelvis mounting offset in degrees, as reported by scripts/check_robot.py with"
+        " the robot standing level. The policy's only attitude input is projected_gravity, so an"
+        " uncorrected offset is held as a permanent body lean. Omit to leave the IMU untouched.",
+    )
+    parser.add_argument(
         "--align",
         action="store_true",
         help="After the ramp, hold the start pose and wait for a second confirmation before"
@@ -336,6 +344,14 @@ def main() -> int:
         print(f"[ok] depth stream live ({depth_frames.received} frames)")
     default_pose = build_default_pose()
     kp, kd = core.control_gains()
+
+    if args.imu_tilt is not None:
+        try:
+            tilt_pitch, tilt_roll = (float(v) for v in args.imu_tilt.split(","))
+        except ValueError:
+            parser.error(f"--imu_tilt wants 'PITCH,ROLL' in degrees, got {args.imu_tilt!r}")
+        core.set_imu_tilt(tilt_pitch, tilt_roll)
+        print(f"[ok] IMU tilt taken out: pitch {tilt_pitch:+.2f} deg, roll {tilt_roll:+.2f} deg")
 
     ChannelFactoryInitialize(args.domain_id, args.interface)
 

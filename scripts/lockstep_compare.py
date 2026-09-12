@@ -104,6 +104,12 @@ def main() -> int:
     parser.add_argument("--mode", choices=("teacher", "closed"), default="teacher")
     parser.add_argument("--policy", default=None, help="Required for --mode closed.")
     parser.add_argument("--xml", default=str(DEFAULT_XML))
+    parser.add_argument(
+        "--policy_physics",
+        choices=("physx", "newton", "g1_29dof"),
+        default="newton",
+        help="Joint table the rollout was recorded in. The 29-DoF-with-hand asset is g1_29dof.",
+    )
     parser.add_argument("--sim_dt", type=float, default=SIM_DT)
     parser.add_argument("--contact_timeconst", type=float, default=0.005)
     parser.add_argument("--trunk_mass_scale", type=float, default=1.0)
@@ -123,11 +129,17 @@ def main() -> int:
     parser.add_argument("--trace_steps", type=int, default=8)
     args = parser.parse_args()
 
-    core.set_policy_backend("newton")
+    core.set_policy_backend(args.policy_physics)
     rec = load_rollout(args.rollout)
     names = [str(n) for n in rec["joint_names"]]
-    if names != core.POLICY_JOINT_NAMES:
-        raise ValueError("rollout joint order does not match the active deployment table")
+    # The 29-DoF table carries the 14 finger joints as well; MuJoCo has no hand joints, so the
+    # comparison is over the locomotion 29 in the deployment table's own order.
+    expected = [n for n in core.POLICY_JOINT_NAMES if "hand" not in n]
+    if names != expected:
+        raise ValueError(
+            f"rollout joint order does not match the {args.policy_physics} deployment table; "
+            f"first mismatch at {next((i for i, (a, b) in enumerate(zip(names, expected)) if a != b), len(names))}"
+        )
 
     n_steps = len(rec["q29"]) - 1
     if args.steps is not None:

@@ -30,6 +30,7 @@ anatomical left-leg/right-leg sequence silently drives the wrong motors.
 
 from __future__ import annotations
 
+import math
 import re
 
 import numpy as np
@@ -299,6 +300,58 @@ def set_action_scale(scale, joint_names=None) -> None:
     if missing:
         raise ValueError(f"the action scale leaves {len(missing)} joints unmatched, first {missing[:4]}")
     ACTION_SCALE = vector
+
+IMU_TILT_WXYZ: np.ndarray = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+"""Rotation from the IMU's frame into the pelvis frame the policy was trained in, ``(w, x, y, z)``.
+
+Identity by default, which is the behaviour before this existed. See :func:`set_imu_tilt`.
+"""
+
+
+def set_imu_tilt(pitch_deg: float, roll_deg: float) -> None:
+    """Take out a fixed IMU-to-pelvis mounting offset.
+
+    The policy's only attitude input is ``projected_gravity``, and on hardware that is computed from
+    the IMU's own quaternion. If the IMU's zero sits a few degrees off the pelvis frame the policy
+    trained in, then with the robot actually level the policy reads "tilted by theta" and answers by
+    holding the body at -theta. The error is constant, invisible in simulation, and shows up as a
+    robot that walks permanently leaning.
+
+    Measure it with ``scripts/check_robot.py``: stand the robot still, level, in its default pose on
+    level ground and read the ``pitch``/``roll`` it prints. Pass those two numbers here.
+
+    The maths: with the robot level the true pelvis rotation is identity, so the measured
+    orientation *is* the mounting offset ``R_off``, and the gravity the policy should have seen is
+    ``R_off * g_measured``. Yaw does not enter -- gravity is invariant to it -- so only pitch and
+    roll are taken.
+
+    Args:
+        pitch_deg: Pitch that ``check_robot.py`` reports with the robot level [deg].
+        roll_deg: Roll that ``check_robot.py`` reports with the robot level [deg].
+    """
+    global IMU_TILT_WXYZ
+
+    half_p, half_r = math.radians(pitch_deg) / 2.0, math.radians(roll_deg) / 2.0
+    cp, sp, cr, sr = math.cos(half_p), math.sin(half_p), math.cos(half_r), math.sin(half_r)
+    # Ry(pitch) * Rx(roll), as (w, x, y, z).
+    IMU_TILT_WXYZ = np.array(
+        [cp * cr, cp * sr, sp * cr, -sp * sr],
+        dtype=np.float32,
+    )
+
+
+def quat_apply_wxyz(quat_wxyz: np.ndarray, vec: np.ndarray) -> np.ndarray:
+    """Rotate a body-frame vector into the parent frame, taking a ``(w, x, y, z)`` quaternion.
+
+    The forward of :func:`quat_apply_inverse_wxyz`, and transcribed from
+    ``isaaclab.utils.math.quat_apply`` for the same reason: the conventions at the two ends of this
+    pipeline disagree, so neither direction is derived here.
+    """
+    w, xyz = float(quat_wxyz[0]), np.asarray(quat_wxyz[1:], dtype=np.float32)
+    vec = np.asarray(vec, dtype=np.float32)
+    t = 2.0 * np.cross(xyz, vec)
+    return vec + w * t + np.cross(xyz, t)
+
 
 HISTORY_LENGTH = 5
 """Frames stacked per observation term, oldest first."""
@@ -572,9 +625,16 @@ class G1PolicyRunner:
         projected_gravity = quat_apply_inverse_wxyz(
             np.asarray(quat_wxyz, dtype=np.float32), np.array([0.0, 0.0, -1.0], dtype=np.float32)
         )
+        gyro = np.asarray(gyro, dtype=np.float32)
+        # Both of these are read in the IMU's frame; the policy was trained on the pelvis frame. A
+        # no-op until set_imu_tilt() is called, and applied to the gyro as well as to gravity so the
+        # two attitude terms stay in the same frame as each other.
+        if IMU_TILT_WXYZ[0] != 1.0:
+            projected_gravity = quat_apply_wxyz(IMU_TILT_WXYZ, projected_gravity)
+            gyro = quat_apply_wxyz(IMU_TILT_WXYZ, gyro)
 
         frame = [
-            np.asarray(gyro, dtype=np.float32),
+            gyro,
             projected_gravity,
             np.asarray(command, dtype=np.float32),
             q_rel,
