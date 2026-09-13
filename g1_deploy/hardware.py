@@ -376,6 +376,7 @@ def hold_until_confirmed(
     """
     import select
     import sys
+    import termios
 
     from g1_deploy.controller import read_joint_state
 
@@ -386,9 +387,21 @@ def hold_until_confirmed(
     except (AttributeError, ValueError):
         interactive = False
 
+    # Drop anything typed before the prompt existed. An operator who types the word during the ramp
+    # -- which is a natural thing to do, the ramp is three seconds of nothing -- would otherwise have
+    # it read on the hold's first poll, and the hold that was asked for would last zero seconds.
+    if interactive:
+        try:
+            termios.tcflush(handle.fileno(), termios.TCIFLUSH)
+        except (termios.error, OSError, ValueError):
+            pass
+
     print(f"\n>>> HOLDING the start pose. Square the robot up, lower it onto its feet.")
     print(f">>> Type '{word}' and press Enter when ready; the policy engages {countdown:.0f}s later.")
     print(f">>> rt/lowcmd keeps flowing throughout, so there is no watchdog to race.")
+    print(">>> KEEP THE ROBOT SUPPORTED. This holds the pose with PD and no policy, and the start")
+    print(">>> pose is not statically stable at these gains -- measured, it passes check_upright's")
+    print(">>> -0.9 threshold 1.3 s after the support goes away.")
     if not interactive:
         print("[warn] stdin is not a terminal; holding for the full timeout instead")
 

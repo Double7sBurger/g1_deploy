@@ -99,6 +99,16 @@ def main() -> int:
     )
     parser.add_argument("--depth_port", type=int, default=None, help="UDP port to receive frames on.")
     parser.add_argument(
+        "--depth_echo",
+        type=int,
+        default=None,
+        metavar="PORT",
+        help="Re-send each frame the policy actually consumed to this UDP port on localhost, so"
+        " scripts/view_depth.py can watch it. Two sockets cannot share the receive port, and this"
+        " forwards the frame *after* any --blind substitution -- so the window shows what the policy"
+        " reads, not what the camera sent, which is the only version worth looking at.",
+    )
+    parser.add_argument(
         "--blind",
         choices=("off", "far", "frozen"),
         default="off",
@@ -568,6 +578,12 @@ def main() -> int:
         print("     for this policy, so letting go is not a stop. The stop is L2+B. Keep the hoist.")
 
     depth_ages: list[float] = []
+    echo_sock = None
+    if args.depth is not None and args.depth_echo:
+        import socket as _socket
+
+        echo_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+        print(f"[..] echoing the consumed depth frame to 127.0.0.1:{args.depth_echo}")
     blind_frame = None
     if args.depth is not None and args.blind == "far":
         blind_frame = np.full(
@@ -631,6 +647,8 @@ def main() -> int:
                         if blind_frame is None:
                             blind_frame = frame.copy()
                         frame = blind_frame
+                    if echo_sock is not None:
+                        echo_sock.sendto(dl.pack_frame(k, frame), ("127.0.0.1", args.depth_echo))
                     target, _ = runner.step(q, dq, quat, gyro, command, frame,
                                             action_limit=args.action_limit)
                 target[core.UNMAPPED_ROBOT_MOTORS] = 0.0
@@ -697,6 +715,8 @@ def main() -> int:
             hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
         if env is not None:
             env.close()
+        if echo_sock is not None:
+            echo_sock.close()
         if depth_frames is not None:
             line = (f"[..] depth: {depth_frames.received} received,"
                     f" {depth_frames.dropped} dropped, {depth_frames.rejected} rejected")

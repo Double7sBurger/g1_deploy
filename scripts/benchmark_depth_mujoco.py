@@ -155,6 +155,10 @@ def main() -> int:
     contract = load_contract(args.export_dir)
     if list(contract["joint_names"]) != list(core.POLICY_JOINT_NAMES):
         raise SystemExit("contract joint order differs from the g1_29dof profile")
+    # The ms line replaced the flat 0.5 with a per-joint table -- 0.11 on the hip against 0.625 on
+    # the ankle -- so a benchmark that keeps the default drives the hip four and a half times as far
+    # as training did, and reports a number for a policy nobody trained.
+    core.set_action_scale(contract["action_scale"])
 
     spec = contract_camera(contract)
     model, camera = build_model_with_camera(args.xml, spec, foot_plate=args.foot_plate)

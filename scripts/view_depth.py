@@ -65,6 +65,82 @@ def render(frame: np.ndarray, max_range: float, rows: int = 19) -> str:
     return "\n".join(out)
 
 
+def colourise(frame: np.ndarray, max_range: float) -> np.ndarray:
+    """Map depth to RGB: near is warm, far is cool, no return is black.
+
+    The same clip the policy applies is used for the colour scale, so what the window shows is
+    scaled exactly like the numbers the network sees rather than stretched to the frame's own
+    extremes -- a picture that rescales itself every frame hides the thing worth noticing, which is
+    ground getting closer.
+
+    Args:
+        frame: Depth in metres, invalid as ``<= 0``.
+        max_range: Range the policy clips at.
+
+    Returns:
+        ``(h, w, 3)`` uint8.
+    """
+    valid = frame > 0
+    t = np.clip(np.where(valid, frame, max_range) / max_range, 0.0, 1.0)
+    # A coarse turbo: red -> yellow -> green -> cyan -> blue as depth grows.
+    r = np.clip(1.5 - 3.0 * t, 0, 1)
+    g = np.clip(1.5 - np.abs(3.0 * t - 1.5), 0, 1)
+    b = np.clip(3.0 * t - 1.5, 0, 1)
+    rgb = (np.stack([r, g, b], axis=-1) * 255).astype(np.uint8)
+    rgb[~valid] = 0
+    return rgb
+
+
+def run_window(rx, args) -> int:
+    """Show the stream in a tkinter window until it is closed.
+
+    Args:
+        rx: A live :class:`~g1_deploy.depth_link.DepthReceiver`.
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit status.
+    """
+    import tkinter as tk
+
+    from PIL import Image, ImageTk
+
+    root = tk.Tk()
+    root.title(f"depth :{args.port}")
+    label = tk.Label(root)
+    label.pack()
+    status = tk.Label(root, font=("Menlo", 11), anchor="w", justify="left")
+    status.pack(fill="x")
+    keep = {}
+
+    def tick():
+        frame, age = rx.latest()
+        if frame is not None:
+            img = Image.fromarray(colourise(frame, args.max_range))
+            img = img.resize((frame.shape[1] * args.zoom, frame.shape[0] * args.zoom), Image.NEAREST)
+            keep["img"] = ImageTk.PhotoImage(img)
+            label.configure(image=keep["img"])
+            valid = frame[frame > 0]
+            mid = frame[frame.shape[0] // 2]
+            mid = mid[mid > 0]
+            status.configure(text=(
+                f"recv {rx.received}  dropped {rx.dropped}  age {age * 1000:5.1f} ms\n"
+                f"valid {100.0 * valid.size / frame.size:5.1f}%  "
+                + (f"near {valid.min():.2f}  far {valid.max():.2f}  centre row {mid.mean():.2f} m"
+                   if valid.size and mid.size else "all invalid")
+            ))
+        root.after(int(1000 / max(1.0, args.hz)), tick)
+
+    tick()
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        rx.close()
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -73,6 +149,10 @@ def main() -> int:
     ap.add_argument("--max_range", type=float, default=3.0, help="Clip range; contract depth_max_range_m.")
     ap.add_argument("--hz", type=float, default=4.0, help="Redraw rate.")
     ap.add_argument("--once", action="store_true", help="Print one frame and exit.")
+    ap.add_argument("--window", action="store_true",
+                    help="Open a colour window instead of drawing text. Needs tkinter and Pillow,"
+                         " both of which ship with the environment.")
+    ap.add_argument("--zoom", type=int, default=10, help="Window pixels per depth pixel.")
     ap.add_argument("--timeout", type=float, default=20.0)
     args = ap.parse_args()
 
@@ -86,6 +166,9 @@ def main() -> int:
         print("       already bound to this port, start this first or use a separate port.")
         rx.close()
         return 1
+
+    if args.window:
+        return run_window(rx, args)
 
     try:
         while True:
