@@ -64,6 +64,15 @@ def main() -> int:
         " scripts/depth_publisher.py uses, so a vision student can be rehearsed against this"
         " simulator with the identical receive path it will use on the robot.",
     )
+    parser.add_argument(
+        "--camera_pitch",
+        type=float,
+        default=None,
+        help="Render the depth camera at this downward pitch [deg] instead of the contract's."
+        " Measured on this robot with scripts/fit_camera_pose.py the physical mount is about 51"
+        " degrees against the contract's 47.6; overriding shows what the policy will actually be"
+        " fed on hardware.",
+    )
     parser.add_argument("--depth_host", default="127.0.0.1", help="Where to send depth frames.")
     parser.add_argument("--depth_port", type=int, default=None)
     parser.add_argument(
@@ -128,7 +137,7 @@ def main() -> int:
             from g1_deploy.sim.depth_camera import add_camera_element, contract_camera
             from g1_deploy.depth import load_contract
 
-            spec = contract_camera(load_contract(args.depth))
+            spec = contract_camera(load_contract(args.depth), args.camera_pitch)
             add_camera_element(root, spec)
         model = compile_model(root, args.xml)
 

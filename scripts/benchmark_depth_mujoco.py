@@ -132,6 +132,15 @@ def main() -> int:
     ap.add_argument("--suite", choices=("hold", "sequence"), default="hold")
     ap.add_argument("--episodes", type=int, default=5)
     ap.add_argument("--contact_timeconst", type=float, default=0.005)
+    ap.add_argument(
+        "--camera_pitch",
+        type=float,
+        default=None,
+        help="Render the depth camera at this downward pitch [deg] instead of the contract's."
+        " Measured on this robot with scripts/fit_camera_pose.py the physical mount is about 51"
+        " degrees against the contract's 47.6; overriding shows what the policy will actually be"
+        " fed on hardware.",
+    )
     ap.add_argument("--dump", default=None, help="Write sampled depth frames here as .npz.")
     ap.add_argument("--foot_plate", action="store_true",
                     help="Replace each foot's four contact spheres with the solid plate training"
@@ -160,7 +169,7 @@ def main() -> int:
     # as training did, and reports a number for a policy nobody trained.
     core.set_action_scale(contract["action_scale"])
 
-    spec = contract_camera(contract)
+    spec = contract_camera(contract, args.camera_pitch)
     model, camera = build_model_with_camera(args.xml, spec, foot_plate=args.foot_plate)
     model.geom_solref[:, 0] = args.contact_timeconst
     renderer = DepthRenderer(model, spec, camera)

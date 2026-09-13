@@ -70,6 +70,58 @@ def ascii_preview(frame: np.ndarray, max_range: float) -> str:
     return "\n".join(rows)
 
 
+def start_stream(rs, args, attempts: int = 3):
+    """Open the depth stream, resetting the camera and backing off the rate if it will not start.
+
+    A D435i that was stopped and restarted quickly -- which is what happens every time a probe runs
+    before the publisher -- often accepts ``pipeline.start`` and then delivers nothing, surfacing as
+    ``Frame didn't arrive within 2000``. The device needs a hardware reset, not a retry, so the
+    second attempt issues one. The third drops to 60 Hz in case the USB link cannot sustain 90 at
+    this resolution; that is still above the 50 Hz control rate, which is the only requirement.
+
+    Args:
+        rs: The ``pyrealsense2`` module.
+        args: Parsed CLI arguments; ``width``, ``height`` and ``fps`` are read from it.
+        attempts: How many times to try before giving up.
+
+    Returns:
+        The started pipeline profile, with ``args.fps`` updated to what actually started.
+
+    Raises:
+        RuntimeError: If no attempt produces a frame.
+    """
+    import time
+
+    last = None
+    for attempt in range(attempts):
+        if attempt == 1:
+            print("[..] hardware-resetting the camera and waiting 5 s")
+            for dev in rs.context().query_devices():
+                dev.hardware_reset()
+            time.sleep(5.0)
+        if attempt == 2 and args.fps > 60:
+            print(f"[..] dropping {args.fps} -> 60 Hz; still above the 50 Hz control rate")
+            args.fps = 60
+
+        pipe, cfg = rs.pipeline(), rs.config()
+        cfg.enable_stream(rs.stream.depth, args.width, args.height, rs.format.z16, args.fps)
+        try:
+            profile = pipe.start(cfg)
+            # Starting is not the same as streaming: prove a frame actually arrives before handing
+            # the pipeline back, so a dead stream fails here rather than in the control loop.
+            pipe.wait_for_frames(timeout_ms=3000)
+            globals()["_PIPE"] = pipe
+            return profile
+        except RuntimeError as exc:
+            last = exc
+            print(f"[warn] attempt {attempt + 1}/{attempts}: {exc}")
+            try:
+                pipe.stop()
+            except RuntimeError:
+                pass
+    raise RuntimeError(f"the camera never delivered a frame: {last}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--host", required=True, help="Where the control loop runs, e.g. 192.168.123.222.")
@@ -97,9 +149,8 @@ def main() -> int:
 
     import pyrealsense2 as rs
 
-    pipe, cfg = rs.pipeline(), rs.config()
-    cfg.enable_stream(rs.stream.depth, args.width, args.height, rs.format.z16, args.fps)
-    profile = pipe.start(cfg)
+    profile = start_stream(rs, args)
+    pipe = _PIPE
     sensor = profile.get_device().first_depth_sensor()
     scale = sensor.get_depth_scale()
 

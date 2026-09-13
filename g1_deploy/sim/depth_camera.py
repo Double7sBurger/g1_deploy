@@ -60,11 +60,17 @@ pitched **47.6 degrees down**.
 """
 
 
-def contract_camera(contract: dict) -> dict:
+def contract_camera(contract: dict, pitch_override_deg: float | None = None) -> dict:
     """Pull the camera geometry out of a contract into plain numbers.
 
     Args:
         contract: Parsed ``contract.json``.
+        pitch_override_deg: Use this downward pitch instead of the contract's. For rendering what
+            the *physical* camera sees when the two disagree -- measured on this robot with
+            ``scripts/fit_camera_pose.py``, the real mount is about 51 degrees against the
+            contract's 47.6, and at 1.26 m that moves the image centre from 1.71 m of ground to
+            1.61 m. Overriding does not make the policy right, it makes the simulator honest about
+            what the policy will be fed.
 
     Returns:
         ``pos`` [m] relative to the parent body, ``pitch_deg`` below horizontal, ``fovy_deg``,
@@ -100,6 +106,9 @@ def contract_camera(contract: dict) -> dict:
             f" convention table is wrong for {convention!r} or this export describes a camera aimed"
             " somewhere this loader does not expect."
         )
+
+    if pitch_override_deg is not None:
+        pitch = float(pitch_override_deg)
 
     hfov = math.degrees(2.0 * math.atan(cam["horizontal_aperture_mm"] / (2.0 * cam["focal_length_mm"])))
     aspect = cam["width"] / cam["height"]
