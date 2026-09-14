@@ -16,12 +16,11 @@ at the far clipping plane and are mapped to :data:`~g1_deploy.depth_link.INVALID
 RealSense's 0 and Isaac Lab's ``+inf``.
 
 .. attention::
-    **Read ``convention`` before the quaternion.** The same physical camera is a different rotation
-    under each: this rig is ``+47.6`` degrees about ``+Y`` in ``ros`` and ``-132.4`` in ``world``.
-    Taking the raw angle without the convention aims ``depth_student_cl``'s camera 132 degrees down,
-    at the ground just past its own feet -- which produced a visibly limping robot while every array
-    shape downstream still checked out. See :data:`CONVENTION_OFFSET_DEG`.
-
+    **Resolve the rotation into a view direction; do not read its angle.** The same physical camera
+    is a different quaternion under each ``convention``, and two exports differing only in the sign
+    of the forward component -- one aimed at the ground, one into the robot's own torso -- carry the
+    *same* rotation angle. Reading the angle alone maps both onto a plausible view of the floor. See
+    :func:`camera_view_dir`.
 """
 
 from __future__ import annotations
@@ -36,28 +35,63 @@ import numpy as np
 from g1_deploy.depth_link import INVALID
 from g1_deploy.sim.mjcf import assets_for, compile_model, foot_plate_override, resolve_includes
 
-CONVENTION_OFFSET_DEG = {"ros": 0.0, "world": 180.0}
-"""Degrees to add to the signed rotation about ``+Y`` to get the camera's downward pitch.
 
-``convention`` says which local axis the camera looks along -- ROS optical frames use ``+Z``, the
-world convention uses ``+X`` -- so the same physical camera is a different quaternion in each. Two
-exports of the same rig make that concrete: ``depth_student_w100`` records ``ros`` with ``+47.6``
-degrees about ``+Y``, ``depth_student_cl`` records ``world`` with ``-132.4``, and both are a camera
-pitched **47.6 degrees down**.
+CONVENTION_INVERTED = {"world": True, "ros": False}
+"""Whether a contract's ``offset_rot_wxyz`` maps parent-to-camera and so must be inverted.
 
-.. attention::
-    These offsets were pinned against measurement, not derived. The anchor is the real D435i on this
-    robot: at 1.26 m with a 47.6-degree downward pitch, flat ground puts the image centre at 1.71 m,
-    and the camera reads 1.79 against MuJoCo's 1.80 with the same pitch applied. Deriving the view
-    direction from each convention's forward axis instead gives 42.4 and 47.6 degrees *upward*, which
-    matches neither the hardware nor either contract, so one of those axis definitions is wrong and
-    the empirical table is used until it is resolved.
-
-    A convention not in this table raises rather than defaulting. Reading a quaternion with the wrong
-    convention is exactly the failure that produced a visibly limping robot: ``depth_student_cl`` was
-    run with the raw 132.4-degree angle, aiming the camera at the ground a metre in front of the
-    feet, and every shape downstream still checked out.
+Anchored on exports whose intended aim is known, not derived from Isaac Lab's source. See
+:func:`camera_view_dir` for the evidence and for why the rotation *angle* is not enough.
 """
+
+SCENE_AXIS = np.array([1.0, 0.0, 0.0])
+"""The camera axis that looks into the scene, in its own frame: forward, under both conventions."""
+
+
+def camera_view_dir(quat_wxyz, convention: str) -> np.ndarray:
+    """Direction the camera looks, in the parent body's frame.
+
+    Four exports here have a known intended aim, and exactly one reading satisfies all four::
+
+        mjd_v2, yhkd_v2, ymsd_v2   [ 0.9150, 0, -0.4035, 0]  world   ->  [ 0.674, 0, -0.738]
+        depth_student_w100         [ 0.9150, 0, +0.4035, 0]  ros     ->  [ 0.674, 0, -0.738]
+        the seven older exports    [ 0.4035, 0, -0.9150, 0]  world   ->  [-0.674, 0, -0.738]
+
+    The first four are forward and 47.6 degrees down, which is the mount measured on this robot at
+    48.2. The last is *backward* and down -- into the robot's own torso -- which is what the training
+    config's docstring says the superseded value did, and it read 0.00 to 0.17 m on every pixel.
+
+    The ``ros`` export is the exact conjugate of the ``world`` one: the same physical camera stored
+    the other way round. That is the whole content of :data:`CONVENTION_INVERTED`. The scene-facing
+    axis is forward in both -- ``ros``'s optical ``+Z`` is not it, and reading it that way yields
+    42.4 degrees, a plausible-looking angle that is simply not this camera.
+
+    .. attention::
+        The rotation's *angle* cannot decide this. The correct and the torso-facing exports are both
+        47.6 degrees; they differ only in the sign of the forward component. An earlier version of
+        this module read the angle and added a per-convention constant, so a camera aimed backward
+        rendered as an unremarkable view of the ground -- and five students were distilled against
+        it before anything downstream noticed.
+
+    Args:
+        quat_wxyz: ``offset_rot_wxyz`` from the contract.
+        convention: ``world`` or ``ros``.
+
+    Returns:
+        Unit view direction in the parent frame, ``x`` forward and ``z`` up.
+
+    Raises:
+        ValueError: On an unknown convention. Guessing would aim the camera silently.
+    """
+    if convention not in CONVENTION_INVERTED:
+        raise ValueError(
+            f"unknown camera convention {convention!r}; known: {sorted(CONVENTION_INVERTED)}"
+        )
+    quat = np.asarray(quat_wxyz, dtype=float)
+    quat = quat / (np.linalg.norm(quat) or 1.0)
+    rot = np.zeros(9)
+    mujoco.mju_quat2Mat(rot, quat)
+    rot = rot.reshape(3, 3)
+    return (rot.T if CONVENTION_INVERTED[convention] else rot) @ SCENE_AXIS
 
 
 def contract_camera(contract: dict, pitch_override_deg: float | None = None) -> dict:
@@ -65,50 +99,34 @@ def contract_camera(contract: dict, pitch_override_deg: float | None = None) -> 
 
     Args:
         contract: Parsed ``contract.json``.
-        pitch_override_deg: Use this downward pitch instead of the contract's. For rendering what
-            the *physical* camera sees when the two disagree -- measured on this robot with
-            ``scripts/fit_camera_pose.py``, the real mount is about 51 degrees against the
-            contract's 47.6, and at 1.26 m that moves the image centre from 1.71 m of ground to
-            1.61 m. Overriding does not make the policy right, it makes the simulator honest about
-            what the policy will be fed.
+        pitch_override_deg: Use this downward pitch instead of the contract's. Measured on this
+            robot with ``scripts/fit_camera_pose.py`` the real mount is 48.2 degrees against the
+            contract's 47.6 -- agreement, so this exists for the case where they genuinely diverge,
+            and for running an export whose rotation this loader rejects.
 
     Returns:
         ``pos`` [m] relative to the parent body, ``pitch_deg`` below horizontal, ``fovy_deg``,
         ``width``, ``height``, and the ``max_range`` the policy clips at.
 
     Raises:
-        ValueError: If the rotation is not about the pitch axis, or the convention is unknown --
-            both mean the camera is not the one this deployment knows how to reproduce.
+        ValueError: If the camera does not look forward and down. Both halves matter: a rotation
+            that aims it backward is the known broken export, and one that aims it up is not a
+            terrain camera. Either way rendering it anyway would produce a plausible picture of
+            something the policy was not trained on.
     """
     cam = contract["camera"]
-    quat = np.asarray(cam["offset_rot_wxyz"], dtype=float)
-    quat = quat / (np.linalg.norm(quat) or 1.0)
-    axis = quat[1:]
-    norm = float(np.linalg.norm(axis))
-    if norm > 1e-9 and (abs(axis[0]) > 1e-6 * norm or abs(axis[2]) > 1e-6 * norm):
-        raise ValueError(
-            f"camera rotation is about {np.round(axis / norm, 3)}, not the pitch axis; this loader"
-            " only reproduces a camera pitched about Y"
-        )
-
-    convention = cam.get("convention", "ros")
-    if convention not in CONVENTION_OFFSET_DEG:
-        raise ValueError(
-            f"unknown camera convention {convention!r}; known: {sorted(CONVENTION_OFFSET_DEG)}."
-            " Guessing would silently aim the camera somewhere else."
-        )
-    angle = math.degrees(2.0 * math.acos(max(-1.0, min(1.0, quat[0]))))
-    signed = angle * (1.0 if norm < 1e-9 or axis[1] >= 0 else -1.0)
-    pitch = signed + CONVENTION_OFFSET_DEG[convention]
-    if not 0.0 < pitch < 90.0:
-        raise ValueError(
-            f"camera works out to {pitch:+.1f} degrees, which is not a downward pitch. Either the"
-            f" convention table is wrong for {convention!r} or this export describes a camera aimed"
-            " somewhere this loader does not expect."
-        )
+    view = camera_view_dir(cam["offset_rot_wxyz"], cam.get("convention", "ros"))
+    pitch = math.degrees(math.asin(-max(-1.0, min(1.0, view[2]))))
 
     if pitch_override_deg is not None:
         pitch = float(pitch_override_deg)
+    elif not (view[0] > 0.0 and 0.0 < pitch < 90.0):
+        raise ValueError(
+            f"the camera's view direction is {np.round(view, 3)} in the parent frame: "
+            + ("it points backward, into the robot" if view[0] <= 0 else f"its pitch is {pitch:+.1f} deg")
+            + ". This export was made with a camera rotation that does not look forward and down."
+            " Pass --camera_pitch to render it at a chosen angle anyway."
+        )
 
     hfov = math.degrees(2.0 * math.atan(cam["horizontal_aperture_mm"] / (2.0 * cam["focal_length_mm"])))
     aspect = cam["width"] / cam["height"]
