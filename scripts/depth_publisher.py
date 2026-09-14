@@ -143,6 +143,17 @@ def main() -> int:
         help="Skip the field-of-view crop. Only for measuring what the crop is worth -- leaving it"
         " off ships a frame whose contents are 3%% narrower than the policy believes.",
     )
+    ap.add_argument(
+        "--raw_port",
+        type=int,
+        default=None,
+        help="Also send a lightly-downsampled copy of the cropped frame to this port, for looking at"
+        " what the 64x38 the policy reads throws away. Not the native 848x480: a UDP datagram tops"
+        " out at 65507 bytes, which is 32745 uint16 pixels, so the divisor below is what fits.",
+    )
+    ap.add_argument("--raw_div", type=int, default=4,
+                    help="Downsample divisor for --raw_port. 4 gives about 203x120 from the crop,"
+                         " three times the detail of the policy's frame per axis.")
     ap.add_argument("--preview", action="store_true", help="Print an ASCII depth view once a second.")
     ap.add_argument("--report_s", type=float, default=5.0, help="Seconds between throughput lines.")
     args = ap.parse_args()
@@ -178,6 +189,18 @@ def main() -> int:
         print("[!!] field of view still differs by more than a degree after cropping; the policy")
         print("     will read terrain at the wrong scale and nothing downstream can detect it")
 
+    raw_dest = raw_h = raw_w = None
+    if args.raw_port:
+        raw_h, raw_w = ch // args.raw_div, cw // args.raw_div
+        if raw_h * raw_w * 2 + 16 > 65507:
+            raise SystemExit(
+                f"{raw_w}x{raw_h} is {raw_h * raw_w * 2 + 16} bytes, over the 65507-byte datagram"
+                f" limit; raise --raw_div above {args.raw_div}"
+            )
+        raw_dest = (args.host, args.raw_port)
+        print(f"[..] raw preview {raw_w}x{raw_h} -> {args.host}:{args.raw_port}"
+              f"  ({raw_h * raw_w * 2 + 16} bytes/frame)")
+
     seq, sent, t_report = 0, 0, time.monotonic()
     t_preview = t_report
     try:
@@ -191,6 +214,11 @@ def main() -> int:
             metres = raw[y0 : y0 + ch, x0 : x0 + cw].astype(np.float32) * scale
             small = downsample_masked(metres, args.out_height, args.out_width)
             sock.sendto(pack_frame(seq, small, stamp_ns), dest)
+            if raw_dest is not None:
+                # Same crop, same masked averaging, only less of it -- so the two views differ in
+                # resolution alone and the comparison shows what the downsampling costs, not what a
+                # different pipeline would have produced.
+                sock.sendto(pack_frame(seq, downsample_masked(metres, raw_h, raw_w), stamp_ns), raw_dest)
             seq += 1
             sent += 1
 

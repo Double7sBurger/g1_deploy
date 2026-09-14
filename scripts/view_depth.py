@@ -65,7 +65,7 @@ def render(frame: np.ndarray, max_range: float, rows: int = 19) -> str:
     return "\n".join(out)
 
 
-def colourise(frame: np.ndarray, max_range: float) -> np.ndarray:
+def colourise(frame: np.ndarray, max_range: float, gray: bool = False) -> np.ndarray:
     """Map depth to RGB: near is warm, far is cool, no return is black.
 
     The same clip the policy applies is used for the colour scale, so what the window shows is
@@ -76,12 +76,21 @@ def colourise(frame: np.ndarray, max_range: float) -> np.ndarray:
     Args:
         frame: Depth in metres, invalid as ``<= 0``.
         max_range: Range the policy clips at.
+        gray: Draw the single channel the policy actually reads, rather than false colour. The
+            network sees one normalised number per pixel; the colours are a display choice, made
+            because ten centimetres of height is a couple of grey levels and half a hue.
 
     Returns:
         ``(h, w, 3)`` uint8.
     """
     valid = frame > 0
     t = np.clip(np.where(valid, frame, max_range) / max_range, 0.0, 1.0)
+    if gray:
+        # Near bright, matching the text view's ramp, so the two read the same way round.
+        level = ((1.0 - t) * 255).astype(np.uint8)
+        out = np.stack([level] * 3, axis=-1)
+        out[~valid] = 0
+        return out
     # A coarse turbo: red -> yellow -> green -> cyan -> blue as depth grows.
     r = np.clip(1.5 - 3.0 * t, 0, 1)
     g = np.clip(1.5 - np.abs(3.0 * t - 1.5), 0, 1)
@@ -116,7 +125,7 @@ def run_window(rx, args) -> int:
     def tick():
         frame, age = rx.latest()
         if frame is not None:
-            img = Image.fromarray(colourise(frame, args.max_range))
+            img = Image.fromarray(colourise(frame, args.max_range, args.gray))
             img = img.resize((frame.shape[1] * args.zoom, frame.shape[0] * args.zoom), Image.NEAREST)
             keep["img"] = ImageTk.PhotoImage(img)
             label.configure(image=keep["img"])
@@ -153,6 +162,10 @@ def main() -> int:
                     help="Open a colour window instead of drawing text. Needs tkinter and Pillow,"
                          " both of which ship with the environment.")
     ap.add_argument("--zoom", type=int, default=10, help="Window pixels per depth pixel.")
+    ap.add_argument("--gray", action="store_true",
+                    help="Draw the normalised single channel the policy reads instead of false"
+                         " colour. Harder to judge small height differences by eye, which is why"
+                         " colour is the default.")
     ap.add_argument("--timeout", type=float, default=20.0)
     args = ap.parse_args()
 
