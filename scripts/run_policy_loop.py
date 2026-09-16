@@ -770,6 +770,9 @@ def main() -> int:
                          f"  p99 {ms[int(len(ms) * 0.99)]:.0f}"
                          f"  p99.9 {ms[int(len(ms) * 0.999)]:.0f}  max {ms[-1]:.0f}"
                          f"  (limit {args.depth_max_age * 1e3:.0f})")
+            stalls = depth_frames.stall_report()
+            if stalls:
+                line += "\n" + stalls
             print(line)
             depth_frames.close()
 

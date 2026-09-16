@@ -168,6 +168,10 @@ def unpack_frame(payload: bytes) -> tuple[int, int, np.ndarray]:
     return seq, stamp, (mm.reshape(height, width).astype(np.float32) / 1000.0)
 
 
+STALL_S = 0.05
+"""Gap between arrivals worth attributing [s]. Steady state here is one frame every 15-17 ms."""
+
+
 class DepthReceiver:
     """Hold the newest depth frame from the network, and enough bookkeeping to distrust it.
 
@@ -199,6 +203,8 @@ class DepthReceiver:
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1 << 20)
         self._sock.bind((bind, port))
         self._sock.settimeout(0.2)
+        self.stalls: list[tuple[float, float]] = []
+        self._stamp = -1
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._loop, name="depth_rx", daemon=True)
         self._thread.start()
@@ -212,7 +218,7 @@ class DepthReceiver:
             except OSError:
                 return
             try:
-                seq, _stamp, frame = unpack_frame(payload)
+                seq, stamp, frame = unpack_frame(payload)
             except ValueError:
                 self.rejected += 1
                 continue
@@ -224,10 +230,43 @@ class DepthReceiver:
                     gap = (seq - self._seq) & 0xFFFFFFFF
                     if 0 < gap < 1000:
                         self.dropped += gap - 1
+                now = time.monotonic()
+                if self._frame is not None and now - self._recv_monotonic > STALL_S:
+                    # Attribute the stall. The publisher's own clock may be wrong in absolute terms
+                    # -- PC2 boots at 1970 with no NTP -- but the difference between two consecutive
+                    # stamps is still the interval it waited, and that is the whole question: a
+                    # sender that paused shows the same gap on both clocks, while a receiver thread
+                    # that lost the GIL to policy inference shows a large local gap and a small
+                    # remote one.
+                    remote = (stamp - self._stamp) / 1e9 if self._stamp >= 0 else float("nan")
+                    self.stalls.append((now - self._recv_monotonic, remote))
                 self._seq = seq
+                self._stamp = stamp
                 self._frame = frame
-                self._recv_monotonic = time.monotonic()
+                self._recv_monotonic = now
                 self.received += 1
+
+    def stall_report(self) -> str:
+        """One line on where the stream's gaps came from, or why there is no answer.
+
+        Returns:
+            A printable summary; empty if nothing stalled.
+        """
+        with self._lock:
+            stalls = list(self.stalls)
+        if not stalls:
+            return ""
+        local = np.asarray([s[0] for s in stalls])
+        remote = np.asarray([s[1] for s in stalls])
+        usable = np.isfinite(remote)
+        line = (f"     {len(stalls)} gaps over {STALL_S * 1e3:.0f} ms,"
+                f" worst {local.max() * 1e3:.0f} ms")
+        if not usable.any():
+            return line + " (no publisher timestamps to attribute them)"
+        # A gap the publisher also saw is the publisher's; one only this end saw is this end's.
+        sender = int(np.count_nonzero(remote[usable] > 0.5 * local[usable]))
+        return (line + f" -- {sender} at the publisher,"
+                f" {int(usable.sum()) - sender} between the wire and this process")
 
     def latest(self) -> tuple[np.ndarray | None, float]:
         """Newest frame and how long ago it arrived.
