@@ -186,6 +186,33 @@ def report(profile: np.ndarray, max_range: float, vfov_deg: float, trunk_deg: fl
         print("       and nothing downstream can detect it -- every frame is still 38x64.")
 
 
+def row_profile(frames: np.ndarray, min_valid: float = 0.5) -> tuple[np.ndarray, int]:
+    """Mean depth per image row, over valid samples only.
+
+    Masking has to happen before either average, not after. A pixel with no return is stored as
+    zero, so averaging across frames first pulls every partially-valid pixel toward the camera in
+    proportion to how often it dropped out -- and on this robot the dropouts are not spread evenly.
+    The bottom fifth of the frame falls from 93 percent valid to 1 percent going down, which bends
+    exactly the part of the profile that carries the pitch.
+
+    Rows below ``min_valid`` are dropped rather than averaged. A correctly masked mean over two
+    percent of a row is still four pixels of noise, and the fit weights every row alike.
+
+    Args:
+        frames: ``(n, h, w)`` depth in metres, invalid as ``<= 0``.
+        min_valid: Fraction of a row's samples that must be valid to keep it.
+
+    Returns:
+        ``(profile, kept)`` -- mean depth per row with dropped rows as NaN, and how many survived.
+    """
+    valid = frames > 0
+    counts = valid.sum(axis=(0, 2))
+    totals = np.where(valid, frames, 0.0).sum(axis=(0, 2))
+    share = counts / (frames.shape[0] * frames.shape[2])
+    profile = np.where(share >= min_valid, totals / np.maximum(counts, 1), np.nan)
+    return profile, int(np.count_nonzero(share >= min_valid))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=int, default=None, help="Listen live on this UDP port.")
@@ -199,6 +226,8 @@ def main() -> int:
                          " gives the fit more rows to work with and leaves the policy's port free"
                          " for the control loop.")
     ap.add_argument("--max_range", type=float, default=3.0)
+    ap.add_argument("--min_valid", type=float, default=0.5,
+                    help="Drop image rows with fewer than this fraction of valid samples.")
     ap.add_argument("--domain_id", type=int, default=None,
                     help="Read the trunk's pitch off rt/lowstate so it can be subtracted. 0 on a"
                          " real G1. Without it the fit reports camera-to-ground, not mounting.")
@@ -258,15 +287,14 @@ def main() -> int:
     else:
         raise SystemExit("give one of --port, --npz or --selftest")
 
-    mean = frames.mean(axis=0)
-    print(f"[..] {len(frames)} frames, {mean.shape[0]} rows")
+    profile, kept = row_profile(frames, args.min_valid)
+    print(f"[..] {len(frames)} frames, {frames.shape[1]} rows, {kept} usable")
     trunk = None
     if args.domain_id is not None:
         trunk = torso_pitch_deg(args.domain_id, args.interface)
         if trunk is None:
             print("[warn] no rt/lowstate; reporting camera-to-ground rather than mounting")
-    report(np.array([r[r > 0].mean() if (r > 0).any() else np.nan for r in mean]),
-           args.max_range, args.vfov, trunk)
+    report(profile, args.max_range, args.vfov, trunk)
     return 0
 
 
