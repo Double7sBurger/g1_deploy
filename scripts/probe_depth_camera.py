@@ -120,6 +120,91 @@ def stream_probe(seconds: float) -> dict | None:
     return {"width": intr.width, "height": intr.height, "hfov": hfov, "vfov": vfov, "hz": hz}
 
 
+def emitter_probe(seconds: float = 2.0) -> None:
+    """Report the projector's settings and what turning it off costs.
+
+    The D435i reads depth by matching a projected infrared speckle pattern between two cameras. On
+    anything untextured -- a painted floor, a plain wall, most of the ground a walking robot looks at
+    -- that pattern is the only texture there is, so with the projector off the depth frame collapses
+    to a few percent valid while a hand held close still registers, because skin has texture of its
+    own under ambient light. That is a distinctive failure, and it looks nothing like a broken cable
+    or a wrong resolution: the stream runs at full rate and the frames are almost entirely empty.
+
+    Measures the valid fraction with the emitter on and then off, rather than only reading the
+    setting back. A projector that reports enabled but has failed, or is being swamped by sunlight,
+    shows up as no difference between the two.
+
+    Args:
+        seconds: Settling time after each change. The auto-exposure needs a moment, and reading
+            immediately reports the previous state.
+
+    Returns:
+        None; prints its findings.
+    """
+    import time
+
+    import numpy as np
+    import pyrealsense2 as rs
+
+    print("\n=== projector ===")
+    pipe = rs.pipeline()
+    cfg = rs.config()
+    cfg.enable_stream(rs.stream.depth)
+    try:
+        profile = pipe.start(cfg)
+    except RuntimeError as exc:
+        print(f"  could not start a stream to test the projector: {exc}")
+        return
+
+    try:
+        sensor = profile.get_device().first_depth_sensor()
+        scale = sensor.get_depth_scale()
+        for opt, label in ((rs.option.emitter_enabled, "emitter_enabled"),
+                           (rs.option.laser_power, "laser_power"),
+                           (rs.option.visual_preset, "visual_preset")):
+            if sensor.supports(opt):
+                rng = sensor.get_option_range(opt)
+                print(f"  {label:<16s} {sensor.get_option(opt):g}   (range {rng.min:g}..{rng.max:g},"
+                      f" default {rng.default:g})")
+            else:
+                print(f"  {label:<16s} not supported by this sensor")
+
+        def valid_pct() -> float:
+            """Percentage of pixels with a depth return, averaged over a short burst."""
+            time.sleep(seconds)
+            pcts = []
+            for _ in range(5):
+                frame = pipe.wait_for_frames(timeout_ms=2000).get_depth_frame()
+                if not frame:
+                    continue
+                a = np.asanyarray(frame.get_data()).astype("float32") * scale
+                pcts.append(100.0 * np.count_nonzero(a > 0) / a.size)
+            return float(np.mean(pcts)) if pcts else float("nan")
+
+        if not sensor.supports(rs.option.emitter_enabled):
+            print("  cannot toggle the emitter, so the comparison below is unavailable")
+            return
+        was = sensor.get_option(rs.option.emitter_enabled)
+        sensor.set_option(rs.option.emitter_enabled, 1)
+        on = valid_pct()
+        sensor.set_option(rs.option.emitter_enabled, 0)
+        off = valid_pct()
+        sensor.set_option(rs.option.emitter_enabled, was)
+        print(f"  valid pixels     emitter on {on:.1f}%   emitter off {off:.1f}%")
+        if on < 40.0 and abs(on - off) < 5.0:
+            print("  -> the projector makes no difference and the frame is mostly empty. Either it")
+            print("     has failed, or the scene defeats it: sunlight swamps the pattern outdoors,")
+            print("     and glass, polished floors and dark matte surfaces reflect none of it back.")
+            print("     Try it indoors, a metre from a plain wall, before suspecting the camera.")
+        elif on < 40.0:
+            print("  -> the projector works but the scene is still mostly out of range. Depth beyond")
+            print("     about 10 m reads as no return; point it at something nearer.")
+        else:
+            print("  -> healthy. The projector is doing its job.")
+    finally:
+        pipe.stop()
+
+
 def compare(measured: dict, contract_path: str) -> None:
     """Hold the measured camera up against what the policy was trained on."""
     with open(contract_path) as handle:
@@ -162,6 +247,7 @@ def main() -> int:
     if measured is None:
         print("\n[FAIL] no depth stream. Nothing downstream can work until this does.")
         return 1
+    emitter_probe()
     if args.contract:
         compare(measured, args.contract)
     print("\n[ok] probe complete; nothing was commanded and no motor was touched")
