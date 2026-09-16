@@ -150,15 +150,17 @@ def main() -> int:
     )
     parser.add_argument(
         "--blind",
-        choices=("off", "far", "frozen"),
+        choices=("off", "far", "frozen", "offline"),
         default="off",
         help="Substitute a constant depth frame to measure what the camera is worth, on the same"
         " code path the robot runs. 'frozen' holds the first frame received -- a real image of the"
         " actual scene, in distribution, carrying no *changing* terrain, which is the fair control."
         " 'far' is max range everywhere: simpler, but an all-far frame never occurred in training,"
         " so it tests an out-of-distribution input as much as it tests blindness. Frames keep"
-        " arriving and the staleness guard keeps watching either way, so this measures the policy,"
-        " not the link.",
+        " arriving and the staleness guard keeps watching either way, so those three measure the"
+        " policy, not the link. 'offline' does not open the link at all, which is the one setting"
+        " that cannot tell you anything about vision -- use it only for a checkpoint already"
+        " measured to ignore the image, when the camera is what is broken.",
     )
     parser.add_argument(
         "--no_strafe",
@@ -167,6 +169,10 @@ def main() -> int:
         " commands but fail on lateral ones -- runaway one way, stalled the other -- so on hardware"
         " a stick nudged sideways is a fall, not a strafe.",
     )
+    parser.add_argument(
+        "--max_range_fill", type=float, default=3.0,
+        help="Depth to fill every pixel with under --blind offline [m]; the contract's"
+        " depth_max_range_m.")
     parser.add_argument(
         "--depth_max_age",
         type=float,
@@ -384,14 +390,20 @@ def main() -> int:
               f"{'per-joint' if isinstance(contract['action_scale'], dict) else contract['action_scale']}")
         policy = load_depth_policy(str(Path(args.depth) / "policy.pt"), contract)
         shape = (int(contract["depth_shape"][1]), int(contract["depth_shape"][2]))
-        depth_frames = dl.DepthReceiver(shape, port=args.depth_port or dl.DEFAULT_PORT)
-        print(f"[..] depth {shape[1]}x{shape[0]} on UDP {args.depth_port or dl.DEFAULT_PORT},"
-              " waiting for the first frame ...")
+        if args.blind == "offline":
+            print(f"[warn] --blind offline: the depth link is not opened. The policy is fed a"
+                  f" constant {args.max_range_fill:.1f} m frame and nothing watches a camera that is"
+                  " not there. Only valid for a checkpoint measured to ignore the image.")
+        else:
+            depth_frames = dl.DepthReceiver(shape, port=args.depth_port or dl.DEFAULT_PORT)
+            print(f"[..] depth {shape[1]}x{shape[0]} on UDP {args.depth_port or dl.DEFAULT_PORT},"
+                  " waiting for the first frame ...")
         # Up front, before anything is prompted or ramped. A missing camera should stop the run
         # while the robot is still untouched, and waiting for it later would put a stall between
         # the ramp and engaging the policy -- the one place this loop must never pause.
-        depth_frames.wait_for_frame(timeout=20.0)
-        print(f"[ok] depth stream live ({depth_frames.received} frames)")
+        if depth_frames is not None:
+            depth_frames.wait_for_frame(timeout=20.0)
+            print(f"[ok] depth stream live ({depth_frames.received} frames)")
     default_pose = build_default_pose()
     kp, kd = core.control_gains()
 
@@ -619,6 +631,8 @@ def main() -> int:
         print("     for this policy, so letting go is not a stop. The stop is L2+B. Keep the hoist.")
 
     depth_ages: list[float] = []
+    offline_frame = (np.full((shape[0], shape[1]), args.max_range_fill, np.float32)
+                     if args.depth is not None and args.blind == "offline" else None)
     echo_sock = None
     if args.depth is not None and args.depth_echo:
         import socket as _socket
@@ -671,7 +685,10 @@ def main() -> int:
                 if args.depth is None:
                     target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
                 else:
-                    frame, age = depth_frames.latest()
+                    if depth_frames is None:
+                        frame, age = offline_frame, 0.0
+                    else:
+                        frame, age = depth_frames.latest()
                     depth_ages.append(age)
                     if age > args.depth_max_age:
                         raise DepthStale(
