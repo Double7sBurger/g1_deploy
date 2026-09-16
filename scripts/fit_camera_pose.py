@@ -192,6 +192,12 @@ def main() -> int:
     ap.add_argument("--npz", default=None, help="Read frames from a .npz written by a recorder.")
     ap.add_argument("--selftest", action="store_true", help="Fit MuJoCo's own camera, where the answer is known.")
     ap.add_argument("--frames", type=int, default=60, help="Frames to average before fitting.")
+    ap.add_argument("--width", type=int, default=64, help="Frame width on --port.")
+    ap.add_argument("--height", type=int, default=38,
+                    help="Frame height on --port. The publisher's --raw_port stream carries the same"
+                         " cropped field of view at a higher resolution, so pointing this at it"
+                         " gives the fit more rows to work with and leaves the policy's port free"
+                         " for the control loop.")
     ap.add_argument("--max_range", type=float, default=3.0)
     ap.add_argument("--domain_id", type=int, default=None,
                     help="Read the trunk's pitch off rt/lowstate so it can be subtracted. 0 on a"
@@ -235,7 +241,7 @@ def main() -> int:
 
         from g1_deploy.depth_link import DepthReceiver
 
-        rx = DepthReceiver((38, 64), port=args.port)
+        rx = DepthReceiver((args.height, args.width), port=args.port)
         print(f"[..] collecting {args.frames} frames on UDP {args.port} -- stand the robot on flat,")
         print("     clear ground, at least 3 m of it in front")
         rx.wait_for_frame(timeout=30.0)
