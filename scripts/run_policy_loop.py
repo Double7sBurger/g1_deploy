@@ -83,6 +83,46 @@ closed for system identification without touching the asset.
 """
 
 
+MODE_MACHINE_DOF = {4: 23, 5: 29, 6: 27}
+"""Joint count each ``mode_machine`` reports. Anything absent is a variant nobody here has seen."""
+
+MISSING_ON_27DOF = ("waist_roll", "waist_pitch")
+"""Slots 13 and 14, which a 27-DoF G1 leaves empty -- measured; the others keep their positions."""
+
+
+def warn_joint_count(mode_machine: int) -> None:
+    """Say so when the robot is not the 29-DoF variant this deployment describes.
+
+    A warning rather than a refusal, and only because the difference was measured. The 27-DoF
+    variant is a 29-DoF G1 with the waist locked in roll and pitch: it does not renumber the other
+    motors, so the joint mapping still describes it, and the policy drives those two joints under 5
+    degrees against a knee's 44. Emulated in MuJoCo with ``benchmark_depth_mujoco.py --lock_waist``
+    over 15 episodes, survival moved 60 to 80 percent on ``ymsd_v2`` and 87 to 73 on
+    ``depth_student_w100`` -- opposite directions, both inside one standard error, which is a test
+    that found nothing rather than a result that clears it.
+
+    A 23-DoF robot is a different matter and gets the same warning only because refusing is the
+    caller's decision to make; the joint order genuinely does not describe it.
+
+    Args:
+        mode_machine: As reported in ``rt/lowstate``.
+    """
+    if mode_machine == 5:
+        return
+    dof = MODE_MACHINE_DOF.get(mode_machine)
+    print(f"[warn] mode_machine = {mode_machine}"
+          + (f" -- this is a {dof}-DoF G1, not the 29-DoF this policy was trained for."
+             if dof else " -- an unrecognised variant; expected 4, 5 or 6."))
+    if dof == 27:
+        print(f"       It is missing {' and '.join(MISSING_ON_27DOF)} (slots 13 and 14); every other")
+        print("       motor keeps its 29-DoF index, so the mapping holds. The policy will command")
+        print("       two joints that are not there and read a constant zero where training saw")
+        print("       motion. Measured in simulation as no detectable difference -- which is not")
+        print("       the same as measured as safe. Watch the first steps.")
+    else:
+        print("       The joint order in g1_deploy.core does not describe this robot. Do not run it.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--policy", default=None,
@@ -473,6 +513,7 @@ def main() -> int:
         mode_machine = await_discovery(link, bridge, env, default_pose, kp, kd)
     else:
         mode_machine = int(link.wait_for_state().mode_machine)
+        warn_joint_count(mode_machine)
 
     if args.real:
         # The one and only operator gate, and it comes before anything moves. There must be no

@@ -42,6 +42,42 @@ from g1_deploy.sim.mjcf import ground_height
 from g1_deploy.sim.env import DEFAULT_XML
 
 
+LOCKED_WAIST_JOINTS = ("waist_roll_joint", "waist_pitch_joint")
+"""The two joints a 27-DoF G1 does not have. Motor slots 13 and 14, which it reports as empty."""
+
+
+def lock_waist(model: mujoco.MjModel) -> None:
+    """Make the waist rigid in roll and pitch, the way a 27-DoF G1 is.
+
+    Two changes, and both are needed to match the robot rather than merely restrain it. The joint is
+    pinned to zero travel, so the link above the waist is rigid; and the actuator's gear is zeroed,
+    so the torque the policy asks for goes nowhere instead of fighting a limit. A run that only did
+    the first would measure a policy straining against a hard stop, which is not what a robot without
+    the motor does.
+
+    Joint indices are left in place on purpose. The 27-DoF variant does not renumber -- measured on
+    the robot, slots 0-12 and 15-28 carry live data at their 29-DoF positions and 13-14 read zero --
+    so the mapping in :mod:`g1_deploy.core` still describes it and only these two joints differ.
+
+    Args:
+        model: Compiled model, modified in place.
+
+    Raises:
+        ValueError: If a joint or its actuator is missing, rather than silently locking nothing.
+    """
+    for name in LOCKED_WAIST_JOINTS:
+        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        if jid < 0:
+            raise ValueError(f"{name} is not in this model; --lock_waist has nothing to lock")
+        model.jnt_limited[jid] = 1
+        model.jnt_range[jid] = (0.0, 0.0)
+        aid = int(np.flatnonzero(model.actuator_trnid[:, 0] == jid)[0]) if np.any(
+            model.actuator_trnid[:, 0] == jid) else -1
+        if aid < 0:
+            raise ValueError(f"no actuator drives {name}; --lock_waist would leave it powered")
+        model.actuator_gear[aid, 0] = 0.0
+
+
 def place_on_ground(model: mujoco.MjModel, data: mujoco.MjData) -> float:
     """Drop the free root until the lowest robot geom rests on the ground; return the root height."""
     geoms = [
@@ -142,6 +178,12 @@ def main() -> int:
         " fed on hardware.",
     )
     ap.add_argument("--dump", default=None, help="Write sampled depth frames here as .npz.")
+    ap.add_argument(
+        "--lock_waist", action="store_true",
+        help="Emulate a 27-DoF G1: pin waist_roll and waist_pitch at zero and give them no"
+        " actuator. That variant reports mode_machine 6 and leaves those two lowstate slots empty,"
+        " so a policy trained on 29 joints reads a constant zero where training saw motion and"
+        " commands two joints that are not there. Measures whether that matters before a robot does.")
     ap.add_argument("--foot_plate", action="store_true",
                     help="Replace each foot's four contact spheres with the solid plate training"
                          " uses. MuJoCo cannot load the training USD, so this reproduces the one"
@@ -172,6 +214,8 @@ def main() -> int:
     spec = contract_camera(contract, args.camera_pitch)
     model, camera = build_model_with_camera(args.xml, spec, foot_plate=args.foot_plate)
     model.geom_solref[:, 0] = args.contact_timeconst
+    if args.lock_waist:
+        lock_waist(model)
     renderer = DepthRenderer(model, spec, camera)
 
     policy = load_depth_policy(str(Path(args.export_dir) / "policy.pt"), contract)
