@@ -170,6 +170,16 @@ def main() -> int:
         " a stick nudged sideways is a fall, not a strafe.",
     )
     parser.add_argument(
+        "--on_fall", choices=("damp", "catch"), default="damp",
+        help="What to do when the fall threshold trips. 'damp' goes limp, which is right for ending"
+        " a run and lets the arms and head arrive first. 'catch' folds to the start pose at reduced"
+        " stiffness for --catch_s and then damps, so the robot lands folded and in the pose it needs"
+        " to try again. Neither prevents the fall: the threshold trips with the trunk already about"
+        " 47 degrees over.")
+    parser.add_argument("--catch_s", type=float, default=2.0, help="How long --on_fall catch folds.")
+    parser.add_argument("--catch_kp_scale", type=float, default=hw.CATCH_KP_SCALE,
+                        help="Fraction of the run's stiffness to catch with.")
+    parser.add_argument(
         "--max_range_fill", type=float, default=3.0,
         help="Depth to fill every pixel with under --blind offline [m]; the contract's"
         " depth_max_range_m.")
@@ -769,8 +779,13 @@ def main() -> int:
         print(f"\n[FAIL] {exc}")
     finally:
         if args.real:
-            # Every exit path damps: normal end, fall, operator Ctrl-C, or an exception mid-loop.
-            hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+            # Every exit path ends limp: normal end, fall, operator Ctrl-C, or an exception mid-loop.
+            # A fall may fold first, but --on_fall catch damps at the end of its own fold.
+            if fell_at is not None and args.on_fall == "catch":
+                hw.catch_pose(link, default_pose, kp, kd, mode_machine, core.CONTROL_DT,
+                              args.catch_s, args.catch_kp_scale)
+            else:
+                hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
         if env is not None:
             env.close()
         if echo_sock is not None:

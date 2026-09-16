@@ -516,6 +516,50 @@ def damp_down(link, kd: np.ndarray, mode_machine: int, control_dt: float, second
         time.sleep(control_dt)
 
 
+CATCH_KP_SCALE = 0.35
+"""Stiffness to catch a falling robot with, as a fraction of the running gains.
+
+Not the full gains. A robot already past the fall threshold is going to the floor whatever the
+motors do, and meeting the impact at running stiffness makes every joint that touches down first
+fight the ground through its gearbox. Not zero either, which is what damping alone gives and what
+lets the arms and head arrive unprotected. Chosen, not measured -- there is no instrumented drop
+test here, and the number is exposed as ``--catch_kp_scale`` for that reason.
+"""
+
+
+def catch_pose(link, target: np.ndarray, kp: np.ndarray, kd: np.ndarray, mode_machine: int,
+               control_dt: float, seconds: float = 2.0, kp_scale: float = CATCH_KP_SCALE) -> None:
+    """Fold to ``target`` at reduced stiffness on the way down, then damp.
+
+    What :func:`damp_down` does is correct for ending a run and wrong for a fall in progress: zero
+    stiffness lets every limb swing free, so the robot lands spread out and the arms and head take
+    the impact. Commanding the start pose instead lands it folded -- knees bent, arms in -- which is
+    also the pose it needs to be in to try again.
+
+    This does not prevent the fall and is not meant to. By the time ``fall_gravity_z`` trips, the
+    trunk is about 47 degrees over and going.
+
+    Damping afterwards is not optional: leaving position gains on against the floor holds the
+    machine in a static fight with the ground for as long as the process lives.
+
+    Args:
+        link: A :class:`~dds_controller.G1ControlLink`.
+        target: Joint positions to fold toward [rad].
+        kp: The run's stiffness, scaled by ``kp_scale`` here [N·m/rad].
+        kd: Damping gains [N·m·s/rad].
+        mode_machine: Echoed from ``rt/lowstate``.
+        control_dt: Loop period [s].
+        seconds: How long to hold the fold before damping.
+        kp_scale: Fraction of ``kp`` to use.
+    """
+    print(f"[..] catching: folding to the start pose at {kp_scale:.0%} stiffness")
+    soft_kp = (np.asarray(kp, dtype=np.float32) * float(kp_scale)).astype(np.float32)
+    for _ in range(max(1, int(round(seconds / control_dt)))):
+        link.send(np.asarray(target, dtype=np.float32), soft_kp, kd, mode_machine)
+        time.sleep(control_dt)
+    damp_down(link, kd, mode_machine, control_dt)
+
+
 def confirm(prompt: str) -> None:
     """Block until the operator types ``go``.
 
