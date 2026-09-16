@@ -76,6 +76,11 @@ def main() -> int:
     parser.add_argument("--depth_host", default="127.0.0.1", help="Where to send depth frames.")
     parser.add_argument("--depth_port", type=int, default=None)
     parser.add_argument(
+        "--lock_waist", action="store_true",
+        help="Lock waist roll and pitch, making the simulated robot the 27-DoF G1 that reports"
+        " mode_machine 6. Those two motor slots are empty on that variant while every other joint"
+        " keeps its index, so this is the whole difference between it and the 29-DoF robot.")
+    parser.add_argument(
         "--foot_plate",
         action="store_true",
         help="Swap each foot's four contact spheres for the solid plate training uses. MuJoCo"
@@ -123,10 +128,15 @@ def main() -> int:
     # Build the model before the env so camera and foot-plate edits survive; G1SimEnv would
     # otherwise reload the XML and drop them.
     depth_pub = model = renderer = None
-    if args.depth is not None or args.foot_plate:
+    if args.depth is not None or args.foot_plate or args.lock_waist:
         from pathlib import Path as _Path
 
-        from g1_deploy.sim.mjcf import compile_model, foot_plate_override, resolve_includes
+        from g1_deploy.sim.mjcf import (
+            compile_model,
+            foot_plate_override,
+            lock_waist,
+            resolve_includes,
+        )
 
         root = resolve_includes(_Path(args.xml))
         if args.foot_plate:
@@ -140,6 +150,9 @@ def main() -> int:
             spec = contract_camera(load_contract(args.depth), args.camera_pitch)
             add_camera_element(root, spec)
         model = compile_model(root, args.xml)
+        if args.lock_waist:
+            lock_waist(model)
+            print("[..] waist roll and pitch locked: this is the 27-DoF G1 (mode_machine 6)")
 
     bridge = G1SimBridge(num_motors=core.NUM_ROBOT_MOTORS)
     mass_scale = {b: args.trunk_mass_scale for b in TRUNK_BODIES} if args.trunk_mass_scale != 1.0 else None

@@ -38,44 +38,8 @@ from g1_deploy import benchmark as bp
 from g1_deploy import core
 from g1_deploy.depth import G1DepthPolicyRunner, load_contract, load_depth_policy
 from g1_deploy.sim.depth_camera import DepthRenderer, build_model_with_camera, contract_camera
-from g1_deploy.sim.mjcf import ground_height
+from g1_deploy.sim.mjcf import ground_height, lock_waist
 from g1_deploy.sim.env import DEFAULT_XML
-
-
-LOCKED_WAIST_JOINTS = ("waist_roll_joint", "waist_pitch_joint")
-"""The two joints a 27-DoF G1 does not have. Motor slots 13 and 14, which it reports as empty."""
-
-
-def lock_waist(model: mujoco.MjModel) -> None:
-    """Make the waist rigid in roll and pitch, the way a 27-DoF G1 is.
-
-    Two changes, and both are needed to match the robot rather than merely restrain it. The joint is
-    pinned to zero travel, so the link above the waist is rigid; and the actuator's gear is zeroed,
-    so the torque the policy asks for goes nowhere instead of fighting a limit. A run that only did
-    the first would measure a policy straining against a hard stop, which is not what a robot without
-    the motor does.
-
-    Joint indices are left in place on purpose. The 27-DoF variant does not renumber -- measured on
-    the robot, slots 0-12 and 15-28 carry live data at their 29-DoF positions and 13-14 read zero --
-    so the mapping in :mod:`g1_deploy.core` still describes it and only these two joints differ.
-
-    Args:
-        model: Compiled model, modified in place.
-
-    Raises:
-        ValueError: If a joint or its actuator is missing, rather than silently locking nothing.
-    """
-    for name in LOCKED_WAIST_JOINTS:
-        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
-        if jid < 0:
-            raise ValueError(f"{name} is not in this model; --lock_waist has nothing to lock")
-        model.jnt_limited[jid] = 1
-        model.jnt_range[jid] = (0.0, 0.0)
-        aid = int(np.flatnonzero(model.actuator_trnid[:, 0] == jid)[0]) if np.any(
-            model.actuator_trnid[:, 0] == jid) else -1
-        if aid < 0:
-            raise ValueError(f"no actuator drives {name}; --lock_waist would leave it powered")
-        model.actuator_gear[aid, 0] = 0.0
 
 
 def place_on_ground(model: mujoco.MjModel, data: mujoco.MjData) -> float:
