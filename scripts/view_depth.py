@@ -150,6 +150,50 @@ def run_window(rx, args) -> int:
     return 0
 
 
+def run_save(rx, args) -> int:
+    """Collect frames to an ``.npz`` and report where the camera returns nothing.
+
+    Saves a burst rather than one frame, because a single frame cannot separate a row that is always
+    empty -- the robot's own body in the lower field of view, or a surface past the sensor's range --
+    from one that dropped out on that frame. A row invalid in every frame of the burst is structural
+    and the renderer should reproduce it; one invalid in a few is noise.
+
+    Args:
+        rx: A live :class:`~g1_deploy.depth_link.DepthReceiver`.
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit status.
+    """
+    frames, seen = [], set()
+    deadline = time.monotonic() + max(10.0, args.save_n / 5.0)
+    while len(frames) < args.save_n and time.monotonic() < deadline:
+        frame, _age = rx.latest()
+        key = frame.tobytes()
+        if key not in seen:
+            seen.add(key)
+            frames.append(frame.copy())
+        time.sleep(0.01)
+    rx.close()
+    if not frames:
+        print("[FAIL] no frames collected")
+        return 1
+
+    stack = np.stack(frames)
+    valid = stack > 0
+    np.savez_compressed(args.save, frames=stack, max_range=args.max_range)
+    print(f"[ok] {args.save}  {len(frames)} distinct frames of {stack.shape[1]}x{stack.shape[2]}")
+    print(f"     valid {100.0 * valid.mean():.1f}% overall")
+    per_row = 100.0 * valid.mean(axis=(0, 2))
+    always_empty = np.flatnonzero(per_row == 0.0)
+    print("     per-row valid %, top to bottom:")
+    print("       " + " ".join(f"{v:3.0f}" for v in per_row))
+    if always_empty.size:
+        print(f"     rows {always_empty.min()}-{always_empty.max()} are empty in every frame"
+              f" ({always_empty.size} of {stack.shape[1]}) -- structural, not noise")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -166,6 +210,12 @@ def main() -> int:
                     help="Draw the normalised single channel the policy reads instead of false"
                          " colour. Harder to judge small height differences by eye, which is why"
                          " colour is the default.")
+    ap.add_argument("--save", default=None,
+                    help="Write the frames seen to this .npz and exit after --save_n of them. The"
+                         " point is comparing the real camera against the renderer row by row: the"
+                         " arrays are the same shape either way, so a difference in which rows come"
+                         " back empty is invisible in a picture and obvious in the numbers.")
+    ap.add_argument("--save_n", type=int, default=30, help="Frames to collect for --save.")
     ap.add_argument("--timeout", type=float, default=20.0)
     args = ap.parse_args()
 
@@ -180,6 +230,8 @@ def main() -> int:
         rx.close()
         return 1
 
+    if args.save:
+        return run_save(rx, args)
     if args.window:
         return run_window(rx, args)
 
