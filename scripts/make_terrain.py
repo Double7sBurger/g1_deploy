@@ -104,6 +104,180 @@ def build_tile(name: str, difficulty: float, cfg):
     return trimesh.util.concatenate(meshes)
 
 
+MESH_TERRAINS = ("pyramid_stairs", "pyramid_stairs_inv", "boxes", "flat")
+"""Sub-terrains Isaac Lab builds from boxes, and so the ones :func:`tile_boxes` can represent."""
+
+FLAT_PAD_THICKNESS = 0.5
+"""Thickness given to the flat pad [m]. Isaac Lab's plane has none; MuJoCo needs a solid."""
+
+BOX_TOLERANCE = 1e-4
+"""Relative volume error allowed when calling a piece an axis-aligned box."""
+
+
+def seed_everything(seed: int) -> None:
+    """Seed both generators the terrain depends on.
+
+    ``--seed`` only ever reached the difficulty jitter, and Isaac Lab's sub-terrain functions draw
+    from two *global* generators it never touched: numpy's for the height fields
+    (``np.random.choice``) and **torch's** for the box grid, whose per-cell heights come from
+    ``Tensor.uniform_``. Nothing seeded either, so the same command produced a different terrain
+    every time -- measured, 26% of height-map cells differed between two runs by up to 285 mm.
+    Seeding numpy alone still left the box grid random, which is why both are here.
+
+    Isaac Lab's own ``TerrainGenerator`` has the same dependency and says so: the terrain is
+    reproducible only "if the seed is set at the beginning of the program".
+
+    That is not a cosmetic problem. Comparing two policies, or one policy before and after a change,
+    on terrain regenerated in between compares them on different ground.
+
+    Args:
+        seed: Seed for both generators.
+    """
+    import torch
+
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
+def tile_boxes(name: str, difficulty: float, cfg) -> list[tuple[np.ndarray, np.ndarray]]:
+    """One sub-terrain tile as axis-aligned boxes, in tile-local coordinates.
+
+    Isaac Lab builds its mesh terrains out of ``trimesh.creation.box`` and returns them as a list,
+    which the height-field path throws away by concatenating. Keeping the list gives MuJoCo the
+    geometry exactly: measured on this config, all 29 pieces of ``pyramid_stairs`` and all 294 of
+    ``boxes`` are axis-aligned boxes, so ``<geom type="box">`` reproduces them with no approximation
+    at all -- and collides as a primitive rather than a mesh.
+
+    That matters because **MuJoCo collides a mesh by its convex hull**. Handing it these terrains as
+    one mesh makes a staircase into a wedge; it scored 0% against 60% for the height field. The fix
+    is not to avoid meshes, it is to not concatenate them.
+
+    Args:
+        name: Key in ``cfg.sub_terrains``, or ``flat``.
+        difficulty: 0 to 1.
+        cfg: ``ROUGH_TERRAINS_CFG``.
+
+    Returns:
+        ``(centre_xyz, half_extent_xyz)`` per box [m].
+
+    Raises:
+        SystemExit: On a height-field sub-terrain, which has no box decomposition, or on a piece
+            that is not an axis-aligned box -- rather than silently shipping its bounding box.
+    """
+    if name == "flat":
+        half = np.array([cfg.size[0] / 2, cfg.size[1] / 2, FLAT_PAD_THICKNESS / 2])
+        return [(np.array([cfg.size[0] / 2, cfg.size[1] / 2, -FLAT_PAD_THICKNESS / 2]), half)]
+    if name not in cfg.sub_terrains:
+        raise SystemExit(f"unknown terrain {name!r}; choose from {list(cfg.sub_terrains)} or 'flat'")
+    sub = cfg.sub_terrains[name].copy()
+    sub.size = cfg.size
+    if hasattr(sub, "horizontal_scale"):
+        raise SystemExit(
+            f"{name!r} is a height field, not a mesh terrain -- there is no box decomposition of it."
+            f" Box terrains are {MESH_TERRAINS}; use --collision hfield for the rest."
+        )
+
+    meshes, _origin = sub.function(difficulty, sub)
+    meshes = meshes if isinstance(meshes, list) else [meshes]
+    boxes = []
+    for mesh in meshes:
+        hull = mesh.convex_hull.volume
+        # A tile's grid of boxes arrives concatenated into one piece; splitting on connected
+        # components recovers them. Measured: 289 components, every one convex.
+        parts = [mesh] if hull > 1e-9 and abs(mesh.volume - hull) / hull < BOX_TOLERANCE \
+            else mesh.split(only_watertight=False)
+        for part in parts:
+            lo, hi = part.bounds
+            extent = hi - lo
+            volume = float(np.prod(extent))
+            if volume < 1e-9 or abs(part.volume - volume) / volume > BOX_TOLERANCE:
+                raise SystemExit(
+                    f"a piece of {name!r} is not an axis-aligned box ({len(part.faces)} faces,"
+                    f" volume {part.volume:.4f} against a bounding box of {volume:.4f}). Shipping"
+                    " its bounding box would quietly fill in terrain that is not there."
+                )
+            boxes.append(((lo + hi) / 2, extent / 2))
+    return boxes
+
+
+def build_box_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = True,
+                   flat_cols: int = 0) -> tuple[list[tuple[np.ndarray, np.ndarray]], float, float, list[str]]:
+    """Tile the box-representable sub-terrains into the same grid :func:`build_grid` lays out.
+
+    The column proportions are renormalised over the mesh terrains alone, so the grid is filled with
+    what this representation can carry rather than erroring on the first height field.
+
+    Args:
+        cfg: ``ROUGH_TERRAINS_CFG``.
+        rows: Grid rows.
+        cols: Grid columns.
+        seed: Difficulty jitter seed.
+        types_along_x: Transpose Isaac Lab's axes so forward motion crosses terrain types.
+        flat_cols: Columns of level ground spliced into the middle.
+
+    Returns:
+        ``(boxes, size_x, size_y, layout)`` with boxes centred on the origin.
+    """
+    mesh_only = cfg.replace(sub_terrains={
+        k: v for k, v in cfg.sub_terrains.items() if k in MESH_TERRAINS
+    })
+    placements, size_x, size_y, layout = grid_layout(
+        mesh_only, rows, cols, seed, types_along_x, flat_cols)
+    boxes = []
+    for kind, difficulty, offset in placements:
+        for centre, half in tile_boxes(kind, difficulty, cfg):
+            boxes.append((centre + np.array([offset[0], offset[1], 0.0]), half))
+    return boxes, size_x, size_y, layout
+
+
+def grid_layout(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = True,
+                flat_cols: int = 0) -> tuple[list[tuple[str, float, np.ndarray]], float, float, list[str]]:
+    """Where each sub-terrain tile goes, in coordinates already centred on the origin.
+
+    Split out of :func:`build_grid` so the height-field and box paths place tiles identically. A
+    layout that differed between them would make the two representations of the same terrain
+    non-comparable, which is the only reason to have both.
+
+    Args:
+        cfg: ``ROUGH_TERRAINS_CFG``.
+        rows: Grid rows.
+        cols: Grid columns, before the flat pad is spliced in.
+        seed: Difficulty jitter seed.
+        types_along_x: Transpose Isaac Lab's axes so forward motion crosses terrain types.
+        flat_cols: Columns of level ground to splice into the middle, where the robot spawns.
+
+    Returns:
+        ``(placements, size_x, size_y, layout)`` -- one ``(name, difficulty, offset_xy)`` per tile,
+        the grid's total extent, and the per-column terrain names.
+    """
+    rng = np.random.default_rng(seed)
+    names = list(cfg.sub_terrains)
+    proportions = np.array([cfg.sub_terrains[n].proportion for n in names], dtype=float)
+    proportions /= proportions.sum()
+    cumulative = np.cumsum(proportions)
+
+    # Column types first, then the flat pad spliced into the middle, so the generated columns keep
+    # the proportions TerrainGenerator would have given them.
+    column_types = [names[int(np.min(np.where(c / cols + 0.001 < cumulative)[0]))] for c in range(cols)]
+    if flat_cols > 0:
+        middle = len(column_types) // 2
+        column_types[middle:middle] = ["flat"] * flat_cols
+
+    total_cols = len(column_types)
+    nx, ny = (total_cols, rows) if types_along_x else (rows, total_cols)
+    size_x, size_y = cfg.size[0] * nx, cfg.size[1] * ny
+    placements = []
+    for col, kind in enumerate(column_types):
+        for row in range(rows):
+            difficulty = (row + rng.uniform()) / rows
+            if types_along_x:
+                offset = np.array([(col + 0.5) * cfg.size[0], (row + 0.5) * cfg.size[1]])
+            else:
+                offset = np.array([(row + 0.5) * cfg.size[0], (col + 0.5) * cfg.size[1]])
+            placements.append((kind, difficulty, offset - np.array([size_x, size_y]) * 0.5))
+    return placements, size_x, size_y, list(column_types)
+
+
 def build_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = True,
                flat_cols: int = 0):
     """Tile sub-terrains into a grid, following ``TerrainGenerator``'s curriculum layout.
@@ -136,41 +310,15 @@ def build_grid(cfg, rows: int, cols: int, seed: int = 0, types_along_x: bool = T
     """
     import trimesh
 
-    rng = np.random.default_rng(seed)
-    names = list(cfg.sub_terrains)
-    proportions = np.array([cfg.sub_terrains[n].proportion for n in names], dtype=float)
-    proportions /= proportions.sum()
-    cumulative = np.cumsum(proportions)
-
-    # Column types first, then the flat pad spliced into the middle, so the generated columns keep
-    # the proportions TerrainGenerator would have given them.
-    column_types = [names[int(np.min(np.where(c / cols + 0.001 < cumulative)[0]))] for c in range(cols)]
-    if flat_cols > 0:
-        middle = len(column_types) // 2
-        column_types[middle:middle] = ["flat"] * flat_cols
-
-    tiles, layout = [], []
-    for col, kind in enumerate(column_types):
-        layout.append(kind)
-        for row in range(rows):
-            difficulty = (row + rng.uniform()) / rows
-            tile = build_tile(kind, difficulty, cfg)
-            transform = np.eye(4)
-            if types_along_x:
-                transform[0:2, -1] = (col + 0.5) * cfg.size[0], (row + 0.5) * cfg.size[1]
-            else:
-                transform[0:2, -1] = (row + 0.5) * cfg.size[0], (col + 0.5) * cfg.size[1]
-            tile = tile.copy()
-            tile.apply_transform(transform)
-            tiles.append(tile)
-
-    combined = trimesh.util.concatenate(tiles)
-    total_cols = len(column_types)
-    nx, ny = (total_cols, rows) if types_along_x else (rows, total_cols)
-    centre = np.eye(4)
-    centre[:2, -1] = -cfg.size[0] * nx * 0.5, -cfg.size[1] * ny * 0.5
-    combined.apply_transform(centre)
-    return combined, cfg.size[0] * nx, cfg.size[1] * ny, layout
+    placements, size_x, size_y, layout = grid_layout(cfg, rows, cols, seed, types_along_x, flat_cols)
+    tiles = []
+    for kind, difficulty, offset in placements:
+        transform = np.eye(4)
+        transform[0:2, -1] = offset
+        tile = build_tile(kind, difficulty, cfg).copy()
+        tile.apply_transform(transform)
+        tiles.append(tile)
+    return trimesh.util.concatenate(tiles), size_x, size_y, layout
 
 
 def rasterise(verts: np.ndarray, size_x: float, size_y: float, res: tuple[int, int]) -> np.ndarray:
@@ -226,7 +374,8 @@ def write_hfield_png(path: Path, grid: np.ndarray) -> None:
 
 
 def write_scene(out_xml: Path, stl: Path, size_x: float, size_y: float, robot_xml: Path,
-                hfield: tuple[int, int, float] | None = None, base_z: float = 0.0) -> None:
+                hfield: tuple[int, int, float] | None = None, base_z: float = 0.0,
+                boxes: list[tuple[np.ndarray, np.ndarray]] | None = None) -> None:
     """Write a self-contained MuJoCo scene putting the robot on the generated terrain.
 
     Includes are resolved and every asset path made absolute, rather than emitting an ``<include>``.
@@ -243,6 +392,12 @@ def write_scene(out_xml: Path, stl: Path, size_x: float, size_y: float, robot_xm
         size_x: Terrain extent [m], for centring.
         size_y: Terrain extent [m].
         robot_xml: Robot MJCF to inline.
+        hfield: ``(nrow, ncol, elevation)`` when the terrain is a height field.
+        base_z: Where the height field's zero level sits [m].
+        boxes: ``(centre, half_extent)`` pairs to emit as primitives instead of a single terrain
+            geom. Takes precedence over ``stl`` and ``hfield``; this is the representation that
+            keeps Isaac Lab's mesh terrains exact, since MuJoCo collides a mesh by its convex hull
+            but a box by the box.
     """
     import xml.etree.ElementTree as ET
 
@@ -266,7 +421,9 @@ def write_scene(out_xml: Path, stl: Path, size_x: float, size_y: float, robot_xm
     asset = root.find("asset")
     if asset is None:
         asset = ET.SubElement(root, "asset")
-    if hfield is None:
+    if boxes is not None:
+        pass
+    elif hfield is None:
         ET.SubElement(asset, "mesh", {"name": "terrain", "file": str(stl.resolve())})
     else:
         nrow, ncol, elevation = hfield
@@ -283,18 +440,32 @@ def write_scene(out_xml: Path, stl: Path, size_x: float, size_y: float, robot_xm
     world = root.find("worldbody")
     if world is None:
         world = ET.SubElement(root, "worldbody")
-    ET.SubElement(world, "geom", {
-        "name": "terrain",
-        "type": "mesh" if hfield is None else "hfield",
-        ("mesh" if hfield is None else "hfield"): "terrain",
-        # MuJoCo scales the normalised height data by `elevation` measured up from the geom's own
-        # z, so the geom sits at the terrain's minimum rather than at zero.
-        "pos": f"0 0 {base_z:.4f}" if hfield is not None else f"{-size_x / 2:.3f} {-size_y / 2:.3f} 0",
-        "rgba": "0.55 0.55 0.55 1",
-        "contype": "1",
-        "conaffinity": "1",
-        "friction": "1 0.005 0.0001",
-    })
+    if boxes is not None:
+        for i, (centre, half) in enumerate(boxes):
+            ET.SubElement(world, "geom", {
+                "name": f"terrain_{i}",
+                "type": "box",
+                "pos": " ".join(f"{v:.5f}" for v in centre),
+                "size": " ".join(f"{v:.5f}" for v in half),
+                "rgba": "0.55 0.55 0.55 1",
+                "contype": "1",
+                "conaffinity": "1",
+                "friction": "1 0.005 0.0001",
+            })
+    else:
+        ET.SubElement(world, "geom", {
+            "name": "terrain",
+            "type": "mesh" if hfield is None else "hfield",
+            ("mesh" if hfield is None else "hfield"): "terrain",
+            # MuJoCo scales the normalised height data by `elevation` measured up from the geom's
+            # own z, so the geom sits at the terrain's minimum rather than at zero.
+            "pos": (f"0 0 {base_z:.4f}" if hfield is not None
+                    else f"{-size_x / 2:.3f} {-size_y / 2:.3f} 0"),
+            "rgba": "0.55 0.55 0.55 1",
+            "contype": "1",
+            "conaffinity": "1",
+            "friction": "1 0.005 0.0001",
+        })
     ET.SubElement(world, "light", {"pos": "0 0 4", "dir": "0 0 -1", "directional": "true"})
     out_xml.write_text(ET.tostring(root, encoding="unicode"))
 
@@ -312,6 +483,12 @@ def main() -> int:
     ap.add_argument("--flat_cols", type=int, default=2,
                     help="Columns of flat ground spliced into the grid centre, where the robot"
                          " spawns. 0 disables it.")
+    ap.add_argument("--collision", choices=("hfield", "box"), default="hfield",
+                    help="How the terrain reaches MuJoCo. 'hfield' rasterises everything to a"
+                         " height map, which is the only option for the height-field sub-terrains"
+                         " and costs the mesh ones their vertical faces. 'box' emits Isaac Lab's own"
+                         " boxes as primitives -- exact for the mesh terrains, and unavailable for"
+                         " the rest, so the grid is filled from the mesh terrains alone.")
     ap.add_argument("--isaac_layout", action="store_true",
                     help="Keep Isaac Lab's own axes: type along +Y, difficulty along +X. The default"
                          " transposes them so a robot walking forward crosses terrain types instead"
@@ -330,6 +507,34 @@ def main() -> int:
               f" {cfg.num_rows} rows x {cfg.num_cols} cols")
         for key, sub in cfg.sub_terrains.items():
             print(f"  {key:<22s} proportion {sub.proportion:.1f}  {type(sub).__name__}")
+        return 0
+
+    seed_everything(args.seed)
+
+    if args.collision == "box":
+        if args.terrain is not None:
+            boxes = [(c + np.array([-cfg.size[0] / 2, -cfg.size[1] / 2, 0.0]), h)
+                     for c, h in tile_boxes(args.terrain, args.difficulty, cfg)]
+            sx, sy, layout = float(cfg.size[0]), float(cfg.size[1]), [args.terrain]
+            print(f"[..] single tile: {args.terrain} at difficulty {args.difficulty}")
+        else:
+            boxes, sx, sy, layout = build_box_grid(cfg, args.rows, args.cols, args.seed,
+                                                   types_along_x=not args.isaac_layout,
+                                                   flat_cols=args.flat_cols)
+            axis_t, axis_d = ("+Y", "+X") if args.isaac_layout else ("+X", "+Y")
+            print(f"[..] box grid {args.rows} difficulty levels x {len(layout)} terrain types,"
+                  f" {cfg.size[0]:.0f} m tiles")
+            print(f"     type along {axis_t}: {' '.join(layout)}")
+            if args.flat_cols:
+                print(f"     spawn is on the {args.flat_cols * cfg.size[0]:.0f} m flat pad"
+                      " at the centre")
+            print(f"     difficulty along {axis_d}: {1 / args.rows:.2f} to 1.00")
+        out = Path(args.out)
+        write_scene(out, out, sx, sy, Path(args.robot_xml), boxes=boxes)
+        tops = np.array([c[2] + h[2] for c, h in boxes])
+        print(f"[ok] {sx:.0f} x {sy:.0f} m, {len(boxes)} boxes, no approximation")
+        print(f"     surface {tops.min():+.3f} to {tops.max():+.3f} m")
+        print(f"     {out}")
         return 0
 
     if args.terrain is not None:
