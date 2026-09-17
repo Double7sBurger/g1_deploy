@@ -44,6 +44,71 @@ Bring-up order and the remote-controller combos are in `README.md`. Two things w
   `hardware.take_lowcmd()` measures the topic instead of trusting the name — believing the name
   makes `release_motion_mode()` spin until it times out and the run dies before it starts.
 
+## Two robots
+
+There are two, they answer on the same addresses, and the code runs on both. **Which one you have
+is `mode_machine` in `rt/lowstate`** — `check_robot.py` prints it, and `run_policy_loop.py` warns at
+startup when it is not 5.
+
+| | first robot | second robot |
+|---|---|---|
+| `mode_machine` | 5 (29-DoF) | 6 (27-DoF) |
+| waist | roll, pitch, yaw | **yaw only** |
+| camera mount, measured | 48.2° | 45.4° |
+| PC2 | conda env, `pyrealsense2` installed | bare Unitree image |
+
+**Everything that handles the second robot is off by default.** `--lock_waist`, `--blind offline`
+and `--on_fall catch` are opt-in; `warn_joint_count` returns without printing on `mode_machine 5`;
+no measured value from either robot is written into the code or into `policies/*/contract.json`.
+Running the first robot means passing none of these, and the behaviour is what it always was.
+
+### The 27-DoF variant
+
+It is a 29-DoF G1 with the waist locked in roll and pitch. Measured on the robot: lowstate slots 13
+and 14 report zero position, torque and temperature while every other motor reports live **at its
+29-DoF index**, so `core.py`'s mapping still describes it and only those two joints differ.
+
+`--lock_waist` (in `run_sim_loop.py` and `benchmark_depth_mujoco.py`) emulates it, pinning the joints
+*and* zeroing their actuator gear — a run that only pinned them would measure a policy straining
+against a hard stop, which is not what a robot without the motor does. Over 15 episodes survival
+moved 60→80% on `ymsd_v2` and 87→73% on `depth_student_w100`: opposite directions, both inside one
+standard error. **That is a test that found nothing, not one that cleared the variant.**
+
+### The route trap, and it will happen again
+
+The corporate VPN on `en0` installs `192.168.64.0/18`, which covers `192.168.123.x` and beats the
+`/16` link route on `en6`. Every packet to the robot leaves through the wrong interface. The symptom
+is not subtle and is still easy to misread: ping fails, DDS discovers **zero** participants, and a
+ping sweep of the subnet answers from corporate machines two hops away (ttl 253, 4–7 ms rather than
+under 1). It reads exactly like a dead cable, and an hour went into the cable.
+
+```bash
+route -n get 192.168.123.161 | grep interface        # must say en6
+sudo route -n add -net 192.168.123.0/24 -interface en6
+```
+
+**Check the route before suspecting hardware.** It is lost on every reboot and VPN reconnect, and
+while it is up it shadows real corporate hosts in that /24.
+
+### Standing up the second robot's PC2
+
+Ubuntu 20.04, Python 3.8, **no internet** (DNS does not resolve), no conda, and only the ROS Noetic
+`librealsense2` — no `pyrealsense2` anywhere. Download
+`pyrealsense2-2.54.2.5684-cp38-cp38-manylinux2014_aarch64.whl` on the laptop and
+`pip3 install --user --no-index` it. Take 2.54.2 and not the newest: it statically links
+librealsense into an 11.6 MB `.so`, while 2.55.1 is a tenth the size and wants the system library,
+which here is ROS's 2.50.0. `depth_publisher.py` also needs `depth_link.py` beside it.
+
+Two things that cost time and will again:
+
+- **`pkill -f depth_publisher` over ssh kills the ssh session.** The remote command runs under
+  `bash -c '<the whole string>'`, and that string contains the pattern — twice, counting the path to
+  the script, so bracketing only the first is not enough. Send the kill as its own `ssh` call.
+- **The camera drops off the USB bus mid-session** and comes back on USB 2.0, where the trained
+  848x480 profile does not exist — `No device connected` then `Couldn't resolve requests`. Check
+  `lsusb -t` for `5000M`, not `480M`. At 480M nothing here works properly: the policy's depth
+  history is 3 frames at 20 ms and a 30 Hz camera makes it span twice the time it trained on.
+
 ## Vision (depth students)
 
 `policies/<name>/` holds `policy.pt` + `contract.json`. The contract is authoritative and was dumped
