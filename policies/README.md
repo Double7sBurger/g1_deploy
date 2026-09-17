@@ -22,14 +22,25 @@ scale, and the `ms` line replaced the blanket 0.5 with a per-joint table (0.11 o
 the ankle). Driving such a policy at 0.5 asks the hip for four and a half times the angle it was
 trained to ask for, and nothing errors.
 
+The environment is the conda env `env_isaaclab` -- that is where `unitree_sdk2py` lives.
+
+`--sim sync` brings its *own* simulator, so it cannot share a domain with `run_sim_loop.py`;
+starting both is two simulators publishing `rt/lowstate` and the loop refuses. Against
+`run_sim_loop.py` the flag is `--real`, which is the hardware path with the factory-controller
+release skipped.
+
 ```bash
+conda activate env_isaaclab
 cd ~/workspace/g1_deploy && export PYTHONPATH=$PWD
 # terminal 1
 python scripts/run_sim_loop.py --domain_id 41 --hoist_s 4.0 --viz --policy_physics g1_29dof
 # terminal 2 -- blind
-python scripts/run_policy_loop.py --sim sync --teleop --policy policies/student_yms \
-  --policy_physics g1_29dof --vx 0.4 --duration inf --domain_id 41 --interface lo
+python scripts/run_policy_loop.py --real --skip_release_mode --teleop --policy policies/student_yms \
+  --policy_physics g1_29dof --vx 0.4 --duration inf --ramp_s 3.0 --domain_id 41 --interface lo
 ```
+
+One process on its own, with no `run_sim_loop.py`, is `--sim sync` -- but nothing publishes depth
+frames there, so a depth student needs either the two-terminal form above or `--blind`.
 
 For a depth student the simulator has to publish frames, and `--depth` takes the same directory:
 
@@ -38,8 +49,8 @@ For a depth student the simulator has to publish frames, and `--depth` takes the
 python scripts/run_sim_loop.py --domain_id 41 --hoist_s 4.0 --viz \
   --policy_physics g1_29dof --depth policies/ymsd --foot_plate
 # terminal 2
-python scripts/run_policy_loop.py --sim sync --teleop --depth policies/ymsd \
-  --policy_physics g1_29dof --vx 0.4 --duration inf --domain_id 41 --interface lo
+python scripts/run_policy_loop.py --real --skip_release_mode --teleop --depth policies/ymsd \
+  --policy_physics g1_29dof --vx 0.4 --duration inf --ramp_s 3.0 --domain_id 41 --interface lo
 ```
 
 `--policy_physics g1_29dof` is not optional: it selects the 43-joint order these were trained on.

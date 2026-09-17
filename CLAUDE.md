@@ -14,6 +14,11 @@ Conda env **`deploy`** (Python 3.10). Companion checkouts the code expects by ab
 | `~/workspace/unitree_sdk2_python` | `unitree_sdk2py`, installed `-e` |
 | `~/workspace/unitree_rl_gym` | reference only — source of the remote-controller bit layout |
 
+**The environment is the conda env `env_isaaclab`**, not a separate `deploy` one — that name
+appears in older notes and no longer exists on this machine. It is where `unitree_sdk2py` is
+installed, alongside cyclonedds 0.10.2, torch and mujoco. Running from the `isaaclab-dev` uv
+venv instead fails at import with `No module named 'unitree_sdk2py'`.
+
 **`cyclonedds` must be 0.10.2.** `unitree_sdk2py` pins it and the pin is real. A newer CycloneDDS
 (11.x) enforces XTypes type-consistency at match time and the SDK's Python IDL hashes differently
 from the robot's C++ IDL, so readers silently never match. This passes every sim-to-sim test — both
@@ -147,7 +152,7 @@ walking working argues it is right, but a subtle misordering would look exactly 
 Run all of these before claiming anything works. They are fast and they have caught real regressions.
 
 ```bash
-conda activate deploy && cd ~/workspace/g1_deploy
+conda activate env_isaaclab && cd ~/workspace/g1_deploy
 
 # single-process deterministic
 python scripts/run_policy_loop.py --sim sync --policy ckpt/policy.pt --vx 0.5 --duration 10 --domain_id 61 --interface lo0
