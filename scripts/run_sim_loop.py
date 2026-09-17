@@ -30,8 +30,13 @@ from __future__ import annotations
 
 import argparse
 import copy
+import signal
 import sys
+import time
 from pathlib import Path
+
+import mujoco
+import numpy as np
 
 from g1_deploy.bootstrap import ensure_cyclonedds
 
@@ -90,6 +95,13 @@ def main() -> int:
         " cannot load the training USD; this reproduces the one override that governs lateral"
         " stability.",
     )
+    parser.add_argument(
+        "--record", default=None, metavar="PATH",
+        help="Log the simulator's true base velocity to this .npz, stamped with the wall clock so"
+        " it can be aligned against run_policy_loop.py --record. This is the only place the truth"
+        " exists: the robot's rt/lowstate carries orientation and angular rate but no linear"
+        " velocity, and neither does the simulator's, so a policy loop cannot know what it"
+        " achieved.")
     parser.add_argument("--domain_id", type=int, default=1)
     parser.add_argument("--interface", default="lo")
     parser.add_argument("--contact_timeconst", type=float, default=0.005)
@@ -210,6 +222,11 @@ def main() -> int:
         f"[..] waiting for rt/lowcmd -- physics is frozen at the reset pose until a controller connects"
     )
 
+    log_t: list[float] = []
+    log_v: list[np.ndarray] = []
+    log_w: list[np.ndarray] = []
+    log_p: list[np.ndarray] = []
+
     physics = RealtimePhysics(
         env, default_pose, hoist_s=args.hoist_s,
         reset_on_fall=args.reset_on_fall, fall_height=args.fall_height,
@@ -217,16 +234,38 @@ def main() -> int:
     physics.start()
     graphics_pacer = PeriodicDeadline(core.CONTROL_DT)
     depth_seq = 0
+
+    # The viewer and the depth renderer read a copy of the state, never the live data -- see
+    # RealtimePhysics. The recording reads that same copy, so what is written to disk and what the
+    # operator is watching describe one instant.
+    probe_data = render_data
+    probe_model = render_model if render_data is not None else env.model
+    if probe_data is None and args.record:
+        probe_data = mujoco.MjData(probe_model)
+
+    # SIGTERM as well as the interrupt. This server has no duration and is stopped by closing the
+    # viewer, by Ctrl-C, or -- as the README tells you to between runs -- by pkill, and that last one
+    # would otherwise skip the finally block and throw the recording away.
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     try:
         while viewer is None or viewer.is_running():
             physics.check()
-            if render_data is not None:
-                physics.copy_state(render_model, render_data)
+            if probe_data is not None:
+                physics.copy_state(probe_model, probe_data)
             if renderer is not None:
                 # Frames also stream while physics is frozen, before the controller connects.
                 frame = renderer.render(render_data)
                 depth_sock.sendto(pack_frame(depth_seq, frame), depth_dest)
                 depth_seq += 1
+            if args.record and probe_data is not None:
+                # Body frame, because that is the frame the command is in: the policy is asked for
+                # forward velocity, not velocity along world +X, and the two diverge on a turn.
+                rot = np.zeros(9)
+                mujoco.mju_quat2Mat(rot, probe_data.qpos[3:7])
+                log_t.append(time.time())
+                log_v.append(rot.reshape(3, 3).T @ probe_data.qvel[0:3])
+                log_w.append(np.array(probe_data.qvel[3:6]))
+                log_p.append(np.array(probe_data.qpos[0:3]))
             if viewer is not None:
                 viewer.sync()
             graphics_pacer.wait()
@@ -240,6 +279,11 @@ def main() -> int:
             renderer.close()
             depth_sock.close()
         env.close()
+        if args.record and log_t:
+            np.savez_compressed(args.record, t=np.asarray(log_t),
+                                lin_vel_b=np.asarray(log_v), ang_vel_b=np.asarray(log_w),
+                                root_pos=np.asarray(log_p))
+            print(f"[ok] {args.record}  {len(log_t)} samples of the simulator's true velocity")
 
     physics.check()
     if physics.started_at is not None:

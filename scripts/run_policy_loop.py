@@ -181,6 +181,11 @@ def main() -> int:
     parser.add_argument("--catch_kp_scale", type=float, default=hw.CATCH_KP_SCALE,
                         help="Fraction of the run's stiffness to catch with.")
     parser.add_argument(
+        "--record", default=None, metavar="PATH",
+        help="Log the commanded velocity to this .npz, stamped with the wall clock. Pair it with"
+        " run_sim_loop.py --record and plot the two with scripts/plot_velocity.py; the command lives"
+        " here and the achieved velocity only exists in the simulator.")
+    parser.add_argument(
         "--max_range_fill", type=float, default=3.0,
         help="Depth to fill every pixel with under --blind offline [m]; the contract's"
         " depth_max_range_m.")
@@ -641,6 +646,8 @@ def main() -> int:
         print("     A centred stick HOLDS the last command, it does not zero it -- vx=0 is a fall")
         print("     for this policy, so letting go is not a stop. The stop is L2+B. Keep the hoist.")
 
+    log_t: list[float] = []
+    log_cmd: list[np.ndarray] = []
     depth_ages: list[float] = []
     offline_frame = (np.full((shape[0], shape[1]), args.max_range_fill, np.float32)
                      if args.depth is not None and args.blind == "offline" else None)
@@ -693,6 +700,9 @@ def main() -> int:
                 # *target* and rebuilds the yaw rate here from the measured orientation, so a
                 # teleoperated run stays on the same distribution a fixed --heading run is on.
                 command = commander.as_array(quat)
+                if args.record:
+                    log_t.append(time.time())
+                    log_cmd.append(np.asarray(command, dtype=np.float32).copy())
 
                 if args.depth is None:
                     target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
@@ -789,6 +799,9 @@ def main() -> int:
             env.close()
         if echo_sock is not None:
             echo_sock.close()
+        if args.record and log_t:
+            np.savez_compressed(args.record, t=np.asarray(log_t), cmd=np.asarray(log_cmd))
+            print(f"[ok] {args.record}  {len(log_t)} commanded samples")
         if depth_frames is not None:
             line = (f"[..] depth: {depth_frames.received} received,"
                     f" {depth_frames.dropped} dropped, {depth_frames.rejected} rejected")
