@@ -181,6 +181,11 @@ def main() -> int:
     parser.add_argument("--catch_kp_scale", type=float, default=hw.CATCH_KP_SCALE,
                         help="Fraction of the run's stiffness to catch with.")
     parser.add_argument(
+        "--cmd_echo", type=int, default=None, metavar="PORT",
+        help="Send the commanded velocity to this UDP port so run_sim_loop.py --cmd_port can draw"
+        " it as an arrow beside the achieved one. Decoration only -- the simulator never feeds it"
+        " back, so a lost datagram costs a frame of arrow and nothing else.")
+    parser.add_argument(
         "--record", default=None, metavar="PATH",
         help="Log the commanded velocity to this .npz, stamped with the wall clock. Pair it with"
         " run_sim_loop.py --record and plot the two with scripts/plot_velocity.py; the command lives"
@@ -646,6 +651,11 @@ def main() -> int:
         print("     A centred stick HOLDS the last command, it does not zero it -- vx=0 is a fall")
         print("     for this policy, so letting go is not a stop. The stop is L2+B. Keep the hoist.")
 
+    cmd_sock = None
+    if args.cmd_echo is not None:
+        import socket as _socket
+
+        cmd_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
     log_t: list[float] = []
     log_cmd: list[np.ndarray] = []
     depth_ages: list[float] = []
@@ -703,6 +713,9 @@ def main() -> int:
                 if args.record:
                     log_t.append(time.time())
                     log_cmd.append(np.asarray(command, dtype=np.float32).copy())
+                if cmd_sock is not None:
+                    cmd_sock.sendto(np.asarray(command, dtype=np.float32).tobytes(),
+                                    ("127.0.0.1", args.cmd_echo))
 
                 if args.depth is None:
                     target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
@@ -799,6 +812,8 @@ def main() -> int:
             env.close()
         if echo_sock is not None:
             echo_sock.close()
+        if cmd_sock is not None:
+            cmd_sock.close()
         if args.record and log_t:
             np.savez_compressed(args.record, t=np.asarray(log_t), cmd=np.asarray(log_cmd))
             print(f"[ok] {args.record}  {len(log_t)} commanded samples")

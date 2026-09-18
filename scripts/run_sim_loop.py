@@ -43,11 +43,13 @@ from g1_deploy.bootstrap import ensure_cyclonedds
 ensure_cyclonedds()
 
 from g1_deploy import core
+from g1_deploy.sim.arrows import ARROW_SCALE, draw_velocity
 from g1_deploy.sim.bridge import G1SimBridge
 from g1_deploy.sim.env import DECIMATION, SIM_DT, G1SimEnv
 from g1_deploy.core import build_default_pose, load_policy
 from g1_deploy.sim.bridge import await_discovery
 from g1_deploy.sim.env import DEFAULT_XML, TRUNK_BODIES
+from g1_deploy.sim.arrows import ARROW_SCALE, draw_velocity
 from g1_deploy.sim.realtime import RealtimePhysics
 from g1_deploy.timing import PeriodicDeadline
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize  # noqa: E402
@@ -64,6 +66,8 @@ def main() -> int:
         " is always G1JointIndex.",
     )
     parser.add_argument("--viz", action="store_true", help="Open a viewer tracking the pelvis.")
+    parser.add_argument("--arrow_scale", type=float, default=ARROW_SCALE,
+                        help="Metres of velocity arrow per m/s.")
     parser.add_argument(
         "--depth",
         default=None,
@@ -95,6 +99,11 @@ def main() -> int:
         " cannot load the training USD; this reproduces the one override that governs lateral"
         " stability.",
     )
+    parser.add_argument(
+        "--cmd_port", type=int, default=None, metavar="PORT",
+        help="Listen here for the commanded velocity from run_policy_loop.py --cmd_echo and draw it"
+        " over the robot as a second arrow. Without it --viz still draws the achieved velocity,"
+        " which is the half this process knows on its own.")
     parser.add_argument(
         "--record", default=None, metavar="PATH",
         help="Log the simulator's true base velocity to this .npz, stamped with the wall clock so"
@@ -222,6 +231,15 @@ def main() -> int:
         f"[..] waiting for rt/lowcmd -- physics is frozen at the reset pose until a controller connects"
     )
 
+    cmd_rx = latest_cmd = None
+    if args.cmd_port is not None:
+        import socket as _socket
+
+        cmd_rx = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+        cmd_rx.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+        cmd_rx.bind(("127.0.0.1", args.cmd_port))
+        cmd_rx.setblocking(False)
+        print(f"[..] drawing the commanded velocity from UDP {args.cmd_port}")
     log_t: list[float] = []
     log_v: list[np.ndarray] = []
     log_w: list[np.ndarray] = []
@@ -242,6 +260,7 @@ def main() -> int:
     probe_model = render_model if render_data is not None else env.model
     if probe_data is None and args.record:
         probe_data = mujoco.MjData(probe_model)
+    pelvis_id = probe_model.body("pelvis").id
 
     # SIGTERM as well as the interrupt. This server has no duration and is stopped by closing the
     # viewer, by Ctrl-C, or -- as the README tells you to between runs -- by pkill, and that last one
@@ -266,7 +285,17 @@ def main() -> int:
                 log_v.append(rot.reshape(3, 3).T @ probe_data.qvel[0:3])
                 log_w.append(np.array(probe_data.qvel[3:6]))
                 log_p.append(np.array(probe_data.qpos[0:3]))
+            if cmd_rx is not None:
+                # Drain to the newest: an arrow showing a command from four frames ago is worse than
+                # one frame of staleness, and this socket is never the reason to block.
+                while True:
+                    try:
+                        latest_cmd = np.frombuffer(cmd_rx.recv(64), dtype=np.float32)
+                    except BlockingIOError:
+                        break
             if viewer is not None:
+                draw_velocity(viewer, probe_model, probe_data, pelvis_id, latest_cmd,
+                              scale=args.arrow_scale)
                 viewer.sync()
             graphics_pacer.wait()
     except KeyboardInterrupt:
@@ -278,6 +307,8 @@ def main() -> int:
         if renderer is not None:
             renderer.close()
             depth_sock.close()
+        if cmd_rx is not None:
+            cmd_rx.close()
         env.close()
         if args.record and log_t:
             np.savez_compressed(args.record, t=np.asarray(log_t),
