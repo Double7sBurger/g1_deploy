@@ -13,12 +13,19 @@ The arrows are drawn into ``viewer.user_scn``, a scratch scene the viewer compos
 model's own geometry. They are decoration: nothing here is part of the model, collides, or is
 visible to the depth camera, which renders from the model and never sees ``user_scn``.
 
-Both arrows are horizontal and scaled by the same metres-per-unit factor, so their *lengths* are
-comparable by eye. That is the only comparison worth making: two arrows scaled independently would
-always look like good tracking.
+Both arrows leave the same point, parallel, scaled by the same metres-per-unit factor, so the
+tracking error is the bit of arrow sticking out past the other one. Two arrows scaled independently
+would always look like good tracking, and two drawn from different points would have to be measured
+rather than seen.
 
-Yaw rate is drawn as a third arrow across the body rather than as a ring, because a curved arrow at
-this size reads as noise. It points to the robot's left when the yaw rate is positive.
+They are separated vertically by a few centimetres and nothing more. Exactly coincident is worse,
+not better: the usual case is a forward command with no lateral component, where the two are
+coaxial and the shorter one disappears inside the longer.
+
+Yaw rate gets its own pair, well clear of the linear ones, because it is a different quantity in
+different units -- rad/s, not m/s -- and stacking it alongside invites reading the three as one
+vector. It is drawn across the body, pointing to the robot's left when the yaw rate is positive,
+rather than as a curved arrow, which at this size reads as noise.
 """
 
 from __future__ import annotations
@@ -48,6 +55,13 @@ the only thing the picture is for."""
 
 ARROW_WIDTH = 0.022
 """Shaft radius [m]."""
+
+ARROW_PAIR_GAP = 0.07
+"""Vertical gap between the two arrows of a pair [m]. Enough that neither hides the other when they
+point the same way, small enough that their tails still read as the same origin."""
+
+YAW_STACK = 0.30
+"""How far above the linear pair the yaw pair sits [m]."""
 
 MIN_LENGTH = 0.02
 """Arrows shorter than this [m] are skipped. ``mjv_connector`` degenerates at zero length, and a
@@ -111,14 +125,17 @@ def draw_velocity(viewer, model, data, pelvis_id: int, command=None,
     left = np.array([-np.sin(heading), np.cos(heading), 0.0])
 
     base = np.array(data.xpos[pelvis_id]) + np.array([0.0, 0.0, ARROW_HEIGHT])
+    gap = np.array([0.0, 0.0, ARROW_PAIR_GAP])
     achieved = rot.T @ data.qvel[0:3]
     _arrow(scene, base, (achieved[0] * forward + achieved[1] * left) * scale, ACHIEVED_RGBA)
-    if command is not None:
-        command = np.asarray(command, dtype=float)
-        _arrow(scene, base + np.array([0.0, 0.0, 0.16]),
-               (command[0] * forward + command[1] * left) * scale, COMMAND_RGBA)
-        # Yaw rate, commanded against achieved, as a short pair across the body.
-        _arrow(scene, base + np.array([0.0, 0.0, 0.32]), command[2] * left * scale * 0.5,
-               YAW_RGBA, ARROW_WIDTH * 0.7)
-        _arrow(scene, base + np.array([0.0, 0.0, 0.32]), float(data.qvel[5]) * left * scale * 0.5,
-               ACHIEVED_RGBA, ARROW_WIDTH * 0.7)
+    if command is None:
+        return
+    command = np.asarray(command, dtype=float)
+    _arrow(scene, base + gap, (command[0] * forward + command[1] * left) * scale, COMMAND_RGBA)
+
+    # Yaw rate, in rad/s on the same arrow scale, kept well above the linear pair.
+    yaw_base = base + np.array([0.0, 0.0, YAW_STACK])
+    _arrow(scene, yaw_base, float(data.qvel[5]) * left * scale * 0.5,
+           ACHIEVED_RGBA, ARROW_WIDTH * 0.7)
+    _arrow(scene, yaw_base + gap * 0.7, command[2] * left * scale * 0.5,
+           YAW_RGBA, ARROW_WIDTH * 0.7)
