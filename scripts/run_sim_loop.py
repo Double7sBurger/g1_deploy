@@ -49,7 +49,6 @@ from g1_deploy.sim.env import DECIMATION, SIM_DT, G1SimEnv
 from g1_deploy.core import build_default_pose, load_policy
 from g1_deploy.sim.bridge import await_discovery
 from g1_deploy.sim.env import DEFAULT_XML, TRUNK_BODIES
-from g1_deploy.sim.arrows import ARROW_SCALE, draw_velocity
 from g1_deploy.sim.realtime import RealtimePhysics
 from g1_deploy.timing import PeriodicDeadline
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize  # noqa: E402
