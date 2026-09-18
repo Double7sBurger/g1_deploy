@@ -1,0 +1,77 @@
+seed: 43
+device: cuda:0
+num_steps_per_env: 24
+init_at_random_ep_len: true
+max_iterations: 8000
+empirical_normalization: {}
+obs_groups:
+  student:
+  - policy
+  - depth
+  teacher:
+  - teacher
+clip_actions: null
+check_for_nan: true
+save_interval: 500
+experiment_name: g1_rough_29dof_depth_distill
+run_name: student_s43
+logger: tensorboard
+neptune_project: isaaclab
+wandb_project: isaaclab
+resume: false
+load_run: .*
+load_checkpoint: logs/rsl_rl/g1_rough/2026-09-17_12-30-18_teacher_s43/model_5999.pt
+class_name: DistillationRunner
+student:
+  class_name: CNNModel
+  hidden_dims:
+  - 512
+  - 256
+  - 128
+  activation: elu
+  obs_normalization: true
+  distribution_cfg:
+    class_name: GaussianDistribution
+    init_std: 0.1
+    std_type: scalar
+  cnn_cfg:
+    output_channels:
+    - 16
+    - 32
+    - 32
+    kernel_size:
+    - 5
+    - 3
+    - 3
+    stride:
+    - 2
+    - 2
+    - 2
+    dilation: 1
+    padding: zeros
+    norm: none
+    activation: relu
+    max_pool: false
+    global_pool: none
+    flatten: true
+teacher:
+  class_name: MLPModel
+  hidden_dims:
+  - 512
+  - 256
+  - 128
+  activation: elu
+  obs_normalization: false
+  distribution_cfg:
+    class_name: GaussianDistribution
+    init_std: 0.0
+    std_type: scalar
+algorithm:
+  class_name: Distillation
+  num_learning_epochs: 2
+  learning_rate: 0.001
+  gradient_length: 15
+  max_grad_norm: 1.0
+  optimizer: adam
+  loss_type: mse
+policy: {}

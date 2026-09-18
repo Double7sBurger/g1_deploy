@@ -105,6 +105,8 @@ class DepthStack:
 def load_depth_policy(path: str, contract: dict):
     """Load an exported vision student and wrap it as a numpy callable.
 
+    Sets PyTorch's process-wide intra-op thread count to one for predictable 50 Hz latency.
+
     Args:
         path: TorchScript file written by ``scripts/export_depth_student.py``.
         contract: Parsed contract for the same export.
@@ -118,6 +120,9 @@ def load_depth_policy(path: str, contract: dict):
     """
     import torch
 
+    # Small batch-1 policies can miss the 20 ms deadline with a large CPU thread pool.
+    # Match the benchmark before loading or warming up the policy, on every platform.
+    torch.set_num_threads(1)
     module = torch.jit.load(path)
     module.eval()
 

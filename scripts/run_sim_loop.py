@@ -6,13 +6,14 @@
 """Serve a MuJoCo G1 on ``rt/lowstate`` / ``rt/lowcmd``, free-running on wall-clock time.
 
 The direct counterpart of ``gear_sonic/scripts/run_sim_loop.py``: start this, then point any
-controller at the same DDS domain and it cannot tell the simulator from a robot. The loop is Sonic's
-``BaseSimulator.start`` -- step physics, publish, sleep the remainder of the timestep.
+controller at the same DDS domain and it cannot tell the simulator from a robot. A worker steps
+physics and publishes at 500 Hz; the caller renders snapshots at 50 Hz. Neither loop replays
+overdue periods after a stall.
 
 This is the *emulation* mode. It reproduces a real robot's asynchrony, including the transport delay
 the controller has to tolerate, which makes it the right tool for asking "will this survive on
 hardware". It is the wrong tool for asking "does MuJoCo agree with Isaac Lab", because the answer
-then includes 12-16 ms of jitter that is a property of the transport rather than of the policy --
+then includes wall-clock scheduling and transport jitter as well as policy behaviour --
 use ``run_policy_loop.py --sim sync`` for that.
 
 Usage::
@@ -28,8 +29,8 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import copy
 import sys
-import time
 from pathlib import Path
 
 from g1_deploy.bootstrap import ensure_cyclonedds
@@ -42,6 +43,8 @@ from g1_deploy.sim.env import DECIMATION, SIM_DT, G1SimEnv
 from g1_deploy.core import build_default_pose, load_policy
 from g1_deploy.sim.bridge import await_discovery
 from g1_deploy.sim.env import DEFAULT_XML, TRUNK_BODIES
+from g1_deploy.sim.realtime import RealtimePhysics
+from g1_deploy.timing import PeriodicDeadline
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize  # noqa: E402
 
 
@@ -161,26 +164,45 @@ def main() -> int:
         bridge,
         sim_dt=SIM_DT,
         decimation=DECIMATION,
-        onscreen=args.viz,
+        onscreen=False,
         contact_timeconst=args.contact_timeconst,
         body_mass_scale=mass_scale,
         align_legs_to_usd=args.align_legs_to_usd,
         command_delay_steps=args.command_delay_steps,
         model=model,
     )
+    default_pose = build_default_pose()
+    root_z = env.reset(default_pose)
+    # The GL thread never renders live physics data or shares a mutable model with it.
+    # GL remains on this thread, as required by mjpython on macOS.
+    viewer = render_model = render_data = None
+    if args.viz or args.depth is not None:
+        import mujoco
+        import mujoco.viewer
+
+        render_model = copy.copy(env.model)
+        render_data = mujoco.MjData(render_model)
+        mujoco.mj_copyData(render_data, render_model, env.data)
+    if args.viz:
+        viewer = mujoco.viewer.launch_passive(
+            render_model, render_data, show_left_ui=False, show_right_ui=False,
+        )
+        viewer.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
+        viewer.cam.trackbodyid = env.pelvis_id
+        viewer.cam.distance = 2.5
+        viewer.cam.azimuth = 130.0
+        viewer.cam.elevation = -20.0
     if args.depth is not None:
         import socket
 
         from g1_deploy.depth_link import DEFAULT_PORT, pack_frame
         from g1_deploy.sim.depth_camera import DepthRenderer
 
-        renderer = DepthRenderer(env.model, spec)
+        renderer = DepthRenderer(render_model, spec)
         depth_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         depth_dest = (args.depth_host, args.depth_port or DEFAULT_PORT)
         print(f"[..] publishing {spec['width']}x{spec['height']} depth to"
               f" {depth_dest[0]}:{depth_dest[1]}")
-    default_pose = build_default_pose()
-    root_z = env.reset(default_pose)
     print(
         f"[..] serving rt/lowstate on domain {args.domain_id} / {args.interface}\n"
         f"     {Path(args.xml).name}  root_z={root_z:.3f} m  physics {SIM_DT * 1000:.0f} ms"
@@ -188,73 +210,48 @@ def main() -> int:
         f"[..] waiting for rt/lowcmd -- physics is frozen at the reset pose until a controller connects"
     )
 
-    # Freeze at the reset pose until a controller connects; see G1SimEnv.publish_only for why a PD
-    # hold is not an option. Without this the robot is flat on the floor by the time a controller
-    # finishes importing torch, and every run reads as an instant failure.
-    viewer_every = max(1, int(round(0.02 / SIM_DT)))
-    frozen_frame = 0
-    depth_seq = [0]
-    while not bridge.cmd_received:
-        if env.viewer is not None:
-            if not env.viewer.is_running():
-                env.close()
-                return 0
-            env.viewer.sync()
-        env.publish_only()
-        if renderer is not None and frozen_frame % viewer_every == 0:
-            # Publish while frozen as well. A real camera streams from power-on; making the
-            # simulator's camera wait for rt/lowcmd would force the controller to wait for its
-            # first frame *after* the ramp, opening exactly the rt/lowcmd gap the ramp exists to
-            # avoid. Throttled to the control rate: rendering every 2 ms physics step floods the
-            # receiver's socket buffer and shows up as a 10% drop rate on loopback.
-            depth_sock.sendto(pack_frame(depth_seq[0], renderer.render(env.data)), depth_dest)
-            depth_seq[0] += 1
-        frozen_frame += 1
-        time.sleep(SIM_DT)
-    print(f"[ok] controller connected at t={env.data.time:.2f}s, physics running")
-
-    step = 0
-    hoist_steps = int(round(args.hoist_s / SIM_DT))
-    hoist_z = float(env.data.qpos[2])
-    if hoist_steps:
-        print(f"[..] hoist holding the pelvis at {hoist_z:.3f} m for {args.hoist_s:.1f}s, then releasing")
-    start = time.monotonic()
+    physics = RealtimePhysics(
+        env, default_pose, hoist_s=args.hoist_s,
+        reset_on_fall=args.reset_on_fall, fall_height=args.fall_height,
+    )
+    physics.start()
+    graphics_pacer = PeriodicDeadline(core.CONTROL_DT)
+    depth_seq = 0
     try:
-        while env.viewer is None or env.viewer.is_running():
-            if step < hoist_steps:
-                env.apply_hoist(hoist_z)
-            elif step == hoist_steps and hoist_steps:
-                env.release_hoist()
-                print(f"[..] hoist released at t={env.data.time:.2f}s")
-            env.sim_step()
-            step += 1
-            if renderer is not None and step % viewer_every == 0:
-                # One frame per control period. The real camera runs faster and the controller takes
-                # the freshest, but publishing more often here would only burn render time.
-                depth_sock.sendto(pack_frame(depth_seq[0], renderer.render(env.data)), depth_dest)
-                depth_seq[0] += 1
-            if env.viewer is not None and step % viewer_every == 0:
-                env.viewer.sync()
-            if args.reset_on_fall and env.data.qpos[2] < args.fall_height:
-                print(f"[warn] fell at t={env.data.time:.2f}s, resetting")
-                env.reset(default_pose)
-                start, step = time.monotonic(), 0
-            lag = start + step * SIM_DT - time.monotonic()
-            if lag > 0:
-                time.sleep(lag)
+        while viewer is None or viewer.is_running():
+            physics.check()
+            if render_data is not None:
+                physics.copy_state(render_model, render_data)
+            if renderer is not None:
+                # Frames also stream while physics is frozen, before the controller connects.
+                frame = renderer.render(render_data)
+                depth_sock.sendto(pack_frame(depth_seq, frame), depth_dest)
+                depth_seq += 1
+            if viewer is not None:
+                viewer.sync()
+            graphics_pacer.wait()
     except KeyboardInterrupt:
         print("\n[..] interrupted")
     finally:
+        physics.stop()
+        if viewer is not None:
+            viewer.close()
         if renderer is not None:
             renderer.close()
             depth_sock.close()
         env.close()
 
-    elapsed = time.monotonic() - start
-    print(
-        f"[ok] {env.data.time:.1f}s simulated in {elapsed:.1f}s wall"
-        f"  (real-time factor {env.data.time / max(1e-9, elapsed):.2f})"
-    )
+    physics.check()
+    if physics.started_at is not None:
+        elapsed = physics.finished_at - physics.started_at
+        simulated = physics.steps * SIM_DT
+        print(f"[ok] {simulated:.1f}s simulated in {elapsed:.1f}s wall"
+              f"  (real-time factor {simulated / max(1e-9, elapsed):.2f})")
+        print(f"[..] physics timing: {physics.pacer.overruns} overruns,"
+              f" worst {physics.pacer.max_lateness * 1000:.1f} ms; no catch-up bursts")
+    if render_data is not None:
+        print(f"[..] graphics timing: {graphics_pacer.overruns} overruns,"
+              f" worst {graphics_pacer.max_lateness * 1000:.1f} ms; independent of physics")
     return 0
 
 

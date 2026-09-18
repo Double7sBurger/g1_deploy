@@ -32,6 +32,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -373,6 +374,19 @@ def write_hfield_png(path: Path, grid: np.ndarray) -> None:
     Image.fromarray((scaled * 65535).astype(np.uint16)).save(path)
 
 
+def _relative_to(target: Path, start: Path) -> str:
+    """Path to *target* as written into a scene file that lives in *start*.
+
+    Relative where that is expressible, so a scene generated on one machine loads on the other --
+    the repos sit side by side on both. Falls back to absolute only when the two are on different
+    drives, where no relative path exists.
+    """
+    try:
+        return os.path.relpath(target, start)
+    except ValueError:
+        return str(target)
+
+
 def write_scene(out_xml: Path, stl: Path, size_x: float, size_y: float, robot_xml: Path,
                 hfield: tuple[int, int, float] | None = None, base_z: float = 0.0,
                 boxes: list[tuple[np.ndarray, np.ndarray]] | None = None) -> None:
@@ -410,8 +424,13 @@ def write_scene(out_xml: Path, stl: Path, size_x: float, size_y: float, robot_xm
     compiler = root.find("compiler")
     if compiler is None:
         compiler = ET.SubElement(root, "compiler")
-    meshdir = robot_xml.parent / compiler.get("meshdir", "")
-    compiler.set("meshdir", str(meshdir.resolve()))
+    # Relative to the scene file, not absolute. MuJoCo resolves ``meshdir`` against the top-level
+    # file's directory either way, but an absolute path bakes in one machine's home directory: a
+    # scene generated on the Mac and pulled onto the Linux box sends the compiler to
+    # ``/Users/hehu/...`` and fails on the first mesh. The two repos sit side by side on both
+    # machines, so a relative path resolves on both.
+    meshdir = (robot_xml.parent / compiler.get("meshdir", "")).resolve()
+    compiler.set("meshdir", _relative_to(meshdir, out_xml.parent))
 
     for plane in [g for g in root.iter("geom") if g.get("type") == "plane"]:
         for parent in root.iter():
@@ -424,12 +443,14 @@ def write_scene(out_xml: Path, stl: Path, size_x: float, size_y: float, robot_xm
     if boxes is not None:
         pass
     elif hfield is None:
-        ET.SubElement(asset, "mesh", {"name": "terrain", "file": str(stl.resolve())})
+        # A bare filename: ``assets_for`` keys the asset dict by bare name and scans both the
+        # robot's meshdir and the scene's own directory, which is where the terrain lives.
+        ET.SubElement(asset, "mesh", {"name": "terrain", "file": stl.name})
     else:
         nrow, ncol, elevation = hfield
         ET.SubElement(asset, "hfield", {
             "name": "terrain",
-            "file": str(stl.resolve()),
+            "file": stl.name,
             "nrow": str(nrow),
             "ncol": str(ncol),
             # radius_x radius_y elevation base. MuJoCo collides a height field cell by cell rather

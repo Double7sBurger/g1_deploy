@@ -711,12 +711,16 @@ def build_default_pose() -> np.ndarray:
 def load_policy(path: str):
     """Load a TorchScript policy and wrap it as a numpy callable.
 
+    Sets PyTorch's process-wide intra-op thread count to one for predictable 50 Hz latency.
+
     Raises:
         ValueError: If the checkpoint's input or output width does not match the deployment contract,
             which almost always means the wrong run or a policy that still expects ``base_lin_vel``.
     """
     import torch
 
+    # Keep batch-1 inference within the control period instead of using all CPU cores.
+    torch.set_num_threads(1)
     module = torch.jit.load(path)
     module.eval()
     probe = module(torch.zeros(1, OBS_DIM))

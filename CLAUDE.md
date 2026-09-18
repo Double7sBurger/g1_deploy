@@ -6,7 +6,7 @@ will cost you an hour if you learn them by hitting them.
 
 ## Environment
 
-Conda env **`deploy`** (Python 3.10). Companion checkouts the code expects by absolute path:
+Conda env **`env_isaaclab`**. Companion checkouts the code expects by absolute path:
 
 | path | why |
 |---|---|
@@ -14,10 +14,14 @@ Conda env **`deploy`** (Python 3.10). Companion checkouts the code expects by ab
 | `~/workspace/unitree_sdk2_python` | `unitree_sdk2py`, installed `-e` |
 | `~/workspace/unitree_rl_gym` | reference only — source of the remote-controller bit layout |
 
-**The environment is the conda env `env_isaaclab`**, not a separate `deploy` one — that name
-appears in older notes and no longer exists on this machine. It is where `unitree_sdk2py` is
-installed, alongside cyclonedds 0.10.2, torch and mujoco. Running from the `isaaclab-dev` uv
-venv instead fails at import with `No module named 'unitree_sdk2py'`.
+Older notes call it `deploy`; that env no longer exists on this machine. Running from the
+`isaaclab-dev` uv venv instead fails at import with `No module named 'unitree_sdk2py'`.
+
+**Generated terrain scenes carry relative paths.** `make_terrain.py` writes `meshdir` relative to
+the scene file and names the height field by bare filename, and `assets_for` scans the scene's own
+directory as well as `meshdir`. Scenes generated before that wrote `/Users/hehu/...` and fail on
+any other machine with `Error opening file ... pelvis_contour_link.STL` — regenerate rather than
+hand-editing.
 
 **`cyclonedds` must be 0.10.2.** `unitree_sdk2py` pins it and the pin is real. A newer CycloneDDS
 (11.x) enforces XTypes type-consistency at match time and the SDK's Python IDL hashes differently

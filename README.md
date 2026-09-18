@@ -103,6 +103,13 @@ The simulator does **not** reset between runs. Restart terminal 1 for each attem
 On macOS pass `--interface lo0`; `lo` is the Linux name and CycloneDDS will not find it. `--viz` has
 to be launched with `mjpython`, which MuJoCo requires for a viewer on macOS.
 
+The free-running simulator steps physics on a worker thread. Depth rendering and the viewer use a
+separate state snapshot, so a slow frame does not pause physics. Both physics and policy loops
+discard overdue wall-clock deadlines instead of accelerating to replay missed periods. Shutdown
+logs report timing overruns separately for physics, graphics, and control; sustained physics
+overruns still mean the machine is not keeping real time. Policy loaders use one PyTorch CPU thread
+to avoid large thread pools exceeding the 20 ms control budget.
+
 ## Driving it from the keyboard
 
 `--vx/--vy/--heading` are otherwise read once at startup. `--teleop` makes them live, in every mode

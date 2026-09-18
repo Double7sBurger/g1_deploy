@@ -41,6 +41,15 @@ SPHERE_RADIUS_M = 0.005
 """Radius of the contact spheres being replaced. Used to keep the sole at the same height."""
 
 
+LOCAL_MESHDIR = Path.home() / "workspace/unitree_mujoco/unitree_robots/g1/meshes"
+"""Where this machine keeps the robot's meshes, used when a scene names a directory that is not here.
+
+Scene files are committed and shared between the Mac and the Linux box, and the generator writes the
+robot's ``meshdir`` into them. Pulling one across therefore names a path that does not exist, and
+the compile fails on the first mesh rather than on anything meaningful.
+"""
+
+
 def resolve_includes(path: Path, depth: int = 0) -> ET.Element:
     """Inline every ``<include>`` so the whole scene is one editable tree.
 
@@ -84,10 +93,23 @@ def assets_for(xml_path: str | Path) -> dict:
     compiler = ET.parse(xml_path).getroot().find(".//compiler")
     sub = compiler.get("meshdir", "") if compiler is not None else ""
     folder = (base / sub) if sub else base
+    # A scene generated on the other machine carries that machine's absolute ``meshdir``. Reading
+    # the meshes from the local robot checkout instead keeps the *terrain* exactly as generated --
+    # regenerating here would silently produce different ground, because the sub-terrains come from
+    # whichever Isaac Lab checkout is on this machine.
+    if not folder.is_dir() and LOCAL_MESHDIR.is_dir():
+        folder = LOCAL_MESHDIR
     assets = {}
     if folder.is_dir():
         for f in sorted(folder.rglob("*")):
             if f.suffix.lower() in (".stl", ".obj", ".png"):
+                assets[f.name] = f.read_bytes()
+    # A generated terrain scene keeps its height field beside itself rather than in the robot's
+    # ``meshdir``, so scan the scene's own directory too -- shallowly, and without displacing a mesh
+    # of the same name, since the dict is keyed by bare filename and MuJoCo rejects duplicates.
+    if base.is_dir() and base.resolve() != folder.resolve():
+        for f in sorted(base.glob("*")):
+            if f.suffix.lower() in (".stl", ".obj", ".png") and f.name not in assets:
                 assets[f.name] = f.read_bytes()
     return assets
 

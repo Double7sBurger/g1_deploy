@@ -48,6 +48,7 @@ import numpy as np  # noqa: E402
 from g1_deploy.controller import G1ControlLink, read_joint_state
 from g1_deploy import teleop as tele
 from g1_deploy import remote as rc
+from g1_deploy.timing import PeriodicDeadline
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize  # noqa: E402
 
 # dds_sim_bridge and dds_sim_env are imported lazily, inside the branch that needs them, because they
@@ -656,6 +657,7 @@ def main() -> int:
             float(contract["depth_max_range_m"]), dtype=np.float32,
         )
     wall_start = time.monotonic()
+    control_pacer = PeriodicDeadline(core.CONTROL_DT)
     fell_at = None
     clamped_steps = 0
     k = -1
@@ -765,10 +767,7 @@ def main() -> int:
                     env.step_control()
                 else:
                     link.send(target, kp, kd, mode_machine)
-                    target_wall = wall_start + (k + 1) * core.CONTROL_DT
-                    lag = target_wall - time.monotonic()
-                    if lag > 0:
-                        time.sleep(lag)
+                    control_pacer.wait()
     except KeyboardInterrupt:
         print("\n[..] interrupted")
     except hw.OperatorAbort as exc:
@@ -812,6 +811,9 @@ def main() -> int:
     survived = fell_at if fell_at is not None else steps_done * core.CONTROL_DT
     real_time = time.monotonic() - wall_start
     print(f"[ok] survived {survived:.2f}s of {duration_txt}  (wall {real_time:.1f}s)")
+    if args.sim == "none":
+        print(f"[..] control timing: {control_pacer.overruns} overruns,"
+              f" worst {control_pacer.max_lateness * 1000:.1f} ms; no catch-up bursts")
     if args.real and clamped_steps:
         verb = "were clamped" if args.clamp_targets else "would have been clamped (--clamp_targets off)"
         print(
