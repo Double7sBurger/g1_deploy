@@ -1,0 +1,12 @@
+{
+  "seed": 42,
+  "directory": "/home/henry/workspace/g1_deploy/policies/tracking_depth1_s42",
+  "depth_shape": [
+    1,
+    38,
+    64
+  ],
+  "checkpoint_sha256": "41ef804314b0dd2ea22e71b55c7c65fecda2fb0e74e10eec5f5c61b5f04ce58e",
+  "export_max_abs_error": 0.0,
+  "runtime_loader_passed": true
+}
