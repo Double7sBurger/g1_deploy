@@ -125,6 +125,11 @@ def warn_joint_count(mode_machine: int) -> None:
 
 
 def main() -> int:
+    with contextlib.ExitStack() as cleanup:
+        return _main(cleanup)
+
+
+def _main(cleanup) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--policy", default=None,
                         help="TorchScript policy exported by isaaclab play. Omit when --depth is"
@@ -190,6 +195,9 @@ def main() -> int:
         help="Log the commanded velocity to this .npz, stamped with the wall clock. Pair it with"
         " run_sim_loop.py --record and plot the two with scripts/plot_velocity.py; the command lives"
         " here and the achieved velocity only exists in the simulator.")
+    parser.add_argument("--log_dir", default=None, metavar="DIR",
+                        help="Full deployment recordings under DIR; default 'recordings' on --real.")
+    parser.add_argument("--no_log", action="store_true", help="Disable the full deployment recording.")
     parser.add_argument(
         "--max_range_fill", type=float, default=3.0,
         help="Depth to fill every pixel with under --blind offline [m]; the contract's"
@@ -357,6 +365,8 @@ def main() -> int:
         " travel regardless when --real is set.",
     )
     args = parser.parse_args()
+    if args.no_log and args.log_dir:
+        parser.error("--no_log and --log_dir cannot be combined")
     if args.real:
         args.sim = "none"
     if args.dry_run and not args.real:
@@ -508,6 +518,15 @@ def main() -> int:
     else:
         root_z = float("nan")
 
+    recorder = None
+    if not args.no_log and (args.real or args.log_dir):
+        from g1_deploy.recording import create_recorder
+
+        recorder = create_recorder(args, contract, core)
+        cleanup.callback(recorder.close)
+        policy = recorder.wrap_policy(policy)
+        recorder.event("setup")
+
     if args.real:
         # Before any endpoint of ours writes rt/lowcmd, nothing else may be writing it. Measured on
         # the topic rather than asked of the motion switcher: a G1 in debug mode still reports its
@@ -522,7 +541,7 @@ def main() -> int:
                 print(f"[FAIL] cannot take ownership of rt/lowcmd: {exc}")
                 return 1
 
-    link = G1ControlLink(num_motors=core.NUM_ROBOT_MOTORS)
+    link = G1ControlLink(num_motors=core.NUM_ROBOT_MOTORS, recorder=recorder)
     if args.sim == "sync":
         # Nothing in this process has published rt/lowstate yet -- the bridge only publishes when
         # await_discovery below tells it to -- so anything arriving in this window is a *second*
@@ -568,6 +587,8 @@ def main() -> int:
             )
         )
         try:
+            if recorder is not None:
+                recorder.event("ramp")
             hw.ramp_to_pose(link, default_pose, kp, kd, mode_machine, core.CONTROL_DT, args.ramp_s)
             hw.check_upright(link)
         except hw.OperatorAbort as exc:
@@ -580,6 +601,8 @@ def main() -> int:
             return 1
         if args.align and not args.dry_run:
             try:
+                if recorder is not None:
+                    recorder.event("align")
                 reached = hw.hold_until_confirmed(
                     link, default_pose, kp, kd, mode_machine, core.CONTROL_DT,
                     word=args.align_word, timeout=args.align_timeout,
@@ -603,6 +626,8 @@ def main() -> int:
             # hoisted and nothing is trying to balance. Not a joint-order check; see
             # hardware.report_tracking for why the ramp target cannot see --policy_physics.
             try:
+                if recorder is not None:
+                    recorder.event("hold")
                 reached = hw.hold_pose(link, default_pose, kp, kd, mode_machine, core.CONTROL_DT, args.hold_s)
                 hw.report_tracking(default_pose, reached, list(hw.MOTOR_NAMES))
             except hw.OperatorAbort as exc:
@@ -678,6 +703,8 @@ def main() -> int:
     fell_at = None
     clamped_steps = 0
     k = -1
+    if recorder is not None:
+        recorder.event("policy_start", mode_machine=mode_machine)
     # Raw mode only for the duration of the loop, so the operator prompt above still reads a line and
     # the terminal is restored on every exit path -- including the fall and the Ctrl-C.
     keys = tele.RawTerminal() if args.teleop else contextlib.nullcontext()
@@ -686,6 +713,7 @@ def main() -> int:
             if args.teleop and not keys.enabled:
                 print("[warn] stdin is not a terminal; keyboard input only via the viewer window")
             for k in itertools.count() if n_steps is None else range(n_steps):
+                step_started_ns = time.monotonic_ns()
                 if args.teleop:
                     for key in keys.poll():
                         if key == "?":
@@ -698,9 +726,8 @@ def main() -> int:
                     if status is not None:
                         print(f"[cmd] {status}")
                 if args.sim == "sync":
-                    state = link.wait_for_tick(int(round(env.data.time * 1e3)))
-                else:
-                    state = link.state
+                    link.wait_for_tick(int(round(env.data.time * 1e3)))
+                state, received_ns = link.snapshot
 
                 quat = np.asarray(state.imu_state.quaternion[:4], dtype=np.float32)
                 gyro = np.asarray(state.imu_state.gyroscope[:3], dtype=np.float32)
@@ -710,6 +737,12 @@ def main() -> int:
                 # *target* and rebuilds the yaw rate here from the measured orientation, so a
                 # teleoperated run stays on the same distribution a fixed --heading run is on.
                 command = commander.as_array(quat)
+                if recorder is not None:
+                    recorder.step_index = k
+                    recorder.arrays("step", step_started_ns, step=k, tick=int(state.tick),
+                                    state_received_ns=received_ns, captured_ns=time.monotonic_ns(),
+                                    command=command, heading=commander.heading,
+                                    q=q, dq=dq, quat=quat, gyro=gyro)
                 if args.record:
                     log_t.append(time.time())
                     log_cmd.append(np.asarray(command, dtype=np.float32).copy())
@@ -725,6 +758,8 @@ def main() -> int:
                     else:
                         frame, age = depth_frames.latest()
                     depth_ages.append(age)
+                    if recorder is not None:
+                        recorder.arrays("depth_age", step=k, age=age)
                     if age > args.depth_max_age:
                         raise DepthStale(
                             f"newest depth frame is {age * 1000:.0f} ms old, over the"
@@ -774,6 +809,8 @@ def main() -> int:
                 gravity_z = float(core.quat_apply_inverse_wxyz(quat, np.array([0.0, 0.0, -1.0], np.float32))[2])
                 if gravity_z > args.fall_gravity_z:
                     fell_at = k * core.CONTROL_DT
+                    if recorder is not None:
+                        recorder.event("fall", step=k, gravity_z=gravity_z)
                     print(f"[warn] fell at t={fell_at:.2f}s (gravity_z={gravity_z:+.3f})")
                     break
 
@@ -792,21 +829,34 @@ def main() -> int:
                     link.send(target, kp, kd, mode_machine)
                     control_pacer.wait()
     except KeyboardInterrupt:
+        if recorder is not None:
+            recorder.event("interrupt")
         print("\n[..] interrupted")
     except hw.OperatorAbort as exc:
+        if recorder is not None:
+            recorder.event("operator_abort", reason=str(exc))
         print(f"\n[..] {exc}")
     except DepthStale as exc:
+        if recorder is not None:
+            recorder.event("depth_stale", reason=str(exc))
         # Treated exactly like the operator abort: the policy has lost an input it needs, and
         # carrying on with a frozen image is worse than stopping.
         print(f"\n[FAIL] {exc}")
     finally:
+        if recorder is not None:
+            recorder.event("policy_stop", step=k, error=str(sys.exc_info()[1]) if sys.exc_info()[1] else None)
+            recorder.step_index = -1
         if args.real:
             # Every exit path ends limp: normal end, fall, operator Ctrl-C, or an exception mid-loop.
             # A fall may fold first, but --on_fall catch damps at the end of its own fold.
             if fell_at is not None and args.on_fall == "catch":
+                if recorder is not None:
+                    recorder.event("catch")
                 hw.catch_pose(link, default_pose, kp, kd, mode_machine, core.CONTROL_DT,
                               args.catch_s, args.catch_kp_scale)
             else:
+                if recorder is not None:
+                    recorder.event("damp")
                 hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
         if env is not None:
             env.close()

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>deploynose · Policy 诊断工作台</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="charts.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <input id="file-input" type="file" accept=".deploynose" hidden>
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="deploynose 首页">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M5 17h5l3-8 5 16 3-8h6" fill="none" stroke="white" stroke-width="2.2" stroke-linejoin="round"/></svg>
+      <span>deploynose<small>POLICY DIAGNOSTICS</small></span>
+    </a>
+    <button class="import-button" id="open-file"><span>＋</span> 导入部署记录 <kbd>O</kbd></button>
+    <div class="nav-label">分析空间</div>
+    <nav aria-label="诊断页面">
+      <button data-view="overview" class="active"><span>◫</span> 总览 <small>01</small></button>
+      <button data-view="joints"><span>⌁</span> 关节与振动 <small>02</small></button>
+      <button data-view="imu"><span>⌖</span> 姿态与偏航 <small>03</small></button>
+      <button data-view="timing"><span>◷</span> 控制时序 <small>04</small></button>
+      <button data-view="policy"><span>⇄</span> Policy 信号 <small>05</small></button>
+      <button data-view="events"><span>☷</span> 事件与配置 <small>06</small></button>
+    </nav>
+    <section id="run-info" class="run-info" hidden>
+      <div class="nav-label">当前记录</div><strong id="side-policy"></strong>
+      <span id="side-date"></span><span id="side-mode" class="mode"></span>
+      <dl><dt>记录样本</dt><dd id="side-samples"></dd><dt>关节通道</dt><dd id="side-joints"></dd></dl>
+      <div class="hash-label">POLICY SHA-256</div><code id="side-hash"></code>
+    </section>
+    <div class="sidebar-bottom"><span class="status-dot"></span> 本地离线分析<span>v1.0</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>工作台 <span class="slash">/</span> <strong id="breadcrumb">总览</strong></span>
+      <span class="local-label">数据只在本机读取 <span>↙</span></span>
+    </header>
+    <div id="message" role="alert" hidden></div>
+    <section id="empty-state">
+      <div class="eyebrow"><span class="status-dot"></span> FROM DEPLOYMENT TO DIAGNOSIS</div>
+      <h1>看清每一次部署<span>。</span></h1>
+      <p class="intro">把机器人状态、policy 输出和控制时序放在同一条时间轴上。</p>
+      <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="选择或拖入部署文件">
+        <div class="file-symbol"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M13 5h16l9 9v28H13zM29 5v10h9"/><path d="M17 28h5l3-7 4 13 3-6h3"/></svg></div>
+        <h2>拖入你的部署记录</h2><p>一个 <code>.deploynose</code> 文件，即可开始分析</p>
+        <span class="choose-file">选择文件 <span>↗</span></span>
+        <small>无需上传 · 无需连接机器人 · 保留原始采样分辨率</small>
+      </div>
+      <div class="empty-actions"><span>还没有记录？</span><button id="demo-button">查看演示数据 <span>→</span></button></div>
+      <div class="feature-grid">
+        <article><span class="feature-number">01 / MOTION</span><h3>哪里在抖</h3><p>关节目标与反馈、速度变化、估计力矩和振动频谱。</p></article>
+        <article><span class="feature-number">02 / TIMING</span><h3>什么时候慢了</h3><p>控制周期、推理耗时、状态年龄与深度数据时效。</p></article>
+        <article><span class="feature-number">03 / CONTEXT</span><h3>当时发生了什么</h3><p>在相同时间窗口内查看姿态、指令、事件和部署配置。</p></article>
+      </div>
+      <details class="howto"><summary>如何生成记录文件？</summary><p>在 g1_deploy 仓库运行分析命令，输出目录中会生成可导入的文件。</p><code>python scripts/analyze_deployment.py recordings/&lt;run&gt; --no_plots</code></details>
+    </section>
+    <section id="workspace" hidden>
+      <div class="page-heading"><div><div class="eyebrow" id="page-eyebrow">DEPLOYMENT OVERVIEW</div><h1 id="page-title">部署总览</h1><p id="run-title"></p></div><span id="integrity-badge" class="badge"></span></div>
+      <div id="notices"></div>
+      <div class="metrics" id="metrics"></div>
+      <div class="toolbar" id="toolbar">
+        <div class="range-fields"><label>时间窗口 <input id="range-start" type="number" step="0.001" aria-label="开始时间"></label><span>—</span><label><input id="range-end" type="number" step="0.001" aria-label="结束时间"> s</label><button id="apply-range">应用</button><button id="reset-range">全时段</button></div>
+        <span class="chart-hint">拖动选区 · 滚轮缩放 · 双击复位</span>
+      </div>
+      <div id="selectors" class="selectors" hidden>
+        <label id="joint-label">查看关节 <select id="joint-select"></select></label>
+        <label id="compare-label">对比关节 <select id="compare-select"></select></label>
+        <label id="action-label">Policy action <select id="action-select"></select></label>
+        <label id="observation-label">观测分量 <input id="observation-select" type="number" min="0" step="1" value="0"></label>
+      </div>
+      <div id="charts" class="chart-grid"></div>
+      <div id="details"></div>
+      <footer class="analysis-footer"><span>曲线是观测证据，不自动判定故障原因。</span><span id="scope-note">时间轴：本机单调时钟 · 单位：秒</span></footer>
+    </section>
+  </main>
+  <div id="drop-overlay" hidden><span>松开以打开部署记录</span></div>
+  <div id="loading" hidden role="status"><span class="spinner"></span><strong>正在读取记录…</strong><span>解压并校验数据</span></div>
+</body>
+</html>

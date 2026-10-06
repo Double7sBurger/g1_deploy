@@ -13,6 +13,8 @@ GPU: the policy is a 208K-parameter MLP that runs in 0.016 ms on a single CPU th
 g1_deploy/
   core.py         the deployment contract: joint order, observation layout, PD gains, default pose
   controller.py   reads rt/lowstate, writes rt/lowcmd — the only part that talks to the robot
+  recording.py    asynchronous DDS and policy recording, enabled by default on hardware
+  analysis.py     offline timing, joint motion, heading and vibration diagnostics
   hardware.py     power-on to policy control, and putting the robot down safely
   bootstrap.py    CycloneDDS library path fix (Linux dev boxes only; a no-op elsewhere)
   benchmark.py    shared command schedule and scoring, used by every runner
@@ -24,6 +26,7 @@ scripts/
   run_sim_loop.py      free-running simulator that answers on rt/lowstate / rt/lowcmd
   benchmark_*.py       quantitative comparison runners
   record_video.py      offscreen recording of a rehearsal
+  analyze_deployment.py  plots and metrics from a deployment recording
 ```
 
 ## Install
@@ -406,3 +409,96 @@ That retrain has since happened, and its checkpoints deploy through `--policy_ph
 see [Which joint layout](#which-joint-layout---policy_physics). The limitation above therefore
 applies to `physx` and `newton` checkpoints only; it is kept here because those are still the ones
 every number on this page was measured with.
+
+## Deployment recordings
+
+Every `run_policy_loop.py --real ...` run now creates its own directory under `recordings/`.
+Keep using the same deployment command. Use `--log_dir /path/to/runs` to choose a different parent
+or to enable the same recorder in simulation; `--no_log` disables it. The existing command-only
+`--record PATH.npz` option is unchanged.
+
+The recorder starts before ramping and includes alignment, policy execution and damping. It saves:
+
+- Full `rt/lowstate` samples received by this controller: all 35 protocol motor slots, IMU,
+  remote buttons/sticks, mode, tick, faults, temperatures, sensor and reserved fields.
+- Every `rt/lowcmd` write attempt, including target position/velocity, feedforward torque, gains
+  and modes; separate completion records distinguish successful and failed local DDS writes.
+  DDS write success is not an acknowledgement from a motor.
+- The exact policy input history, consumed depth stack for vision policies, and raw model output
+  before action clipping. Control-step records identify the state sample, velocity command,
+  heading target and iteration that produced each decision.
+- Host monotonic timestamps, robot tick, inference and write durations, depth age, phase transitions
+  and termination events. Robot tick and host time are separate clocks; receipt age measures time
+  since the local callback, not end-to-end sensor/network latency.
+- Policy SHA-256, deployment arguments, contract, joint mappings, code commit/diff, dependency
+  versions and DDS field definitions. Preserve the policy export beside the logs for replay.
+
+Serialization and disk writes run on a background thread. The bounded queue drops records rather
+than waiting when storage cannot keep up. `metadata.json` reports drops, writer errors and whether
+shutdown completed; a completed shutdown alone does not mean a lossless recording. SQLite commits
+about once a second, so committed data remains readable after a process crash. A forced kill can
+lose the current transaction and queued tail; this is not a power-loss durability guarantee.
+The data is all received telemetry, not a promise that every packet transmitted by the robot arrived.
+The recording rate follows DDS delivery, while policy samples follow the control loop. Budget roughly
+60 MB/min for 500 Hz lowstate alone; observations and depth stacks add to that. Measure actual size
+for your policy before long runs. There is no automatic deletion of earlier recordings.
+
+Analyze after the robot is stopped:
+
+```bash
+pip install -e '.[analysis]'  # once, on the analysis machine
+python scripts/analyze_deployment.py recordings/<run>
+# Equivalent after installing the entry point:
+g1-analyze recordings/<run>
+```
+
+The `analysis/` subdirectory contains `<run>.deploynose`, `overview.png` (IMU, heading error, control intervals and state
+age), `joints.png` (29 commanded joints), `spectrum.png` (joint-velocity spectra when sufficient regular
+samples exist), `summary.json` and `states.npz`. The SQLite file remains the complete raw archive.
+Analysis is offline: it does not create DDS endpoints. For custom analysis, `g1_deploy.analysis.records`
+iterates a stream; pass `include_depth=True` for the `policy` stream to also read its `input_1` stacks.
+The archive does not use pickle.
+
+### deploynose: interactive diagnosis
+
+Generate one portable file, open the app, and drag the file into its window:
+
+```bash
+python scripts/analyze_deployment.py recordings/<run> --no_plots
+# Output: recordings/<run>/analysis/<run>.deploynose
+python scripts/deploynose.py
+# Equivalent after installing the entry point:
+deploynose
+```
+
+`--no_plots` skips the static PNG reports and does not require Matplotlib. Omitting it generates
+both the portable file and the static reports. The viewer can also be opened directly at
+`g1_deploy/deploynose/index.html` in a current browser; it needs no Python environment, server or
+robot connection. Files stay local and are not uploaded. To move the app to another computer,
+copy the entire `g1_deploy/deploynose/` directory.
+
+The six views cover deployment overview, joint tracking and vibration, orientation and heading,
+control timing, policy signals, and events/configuration. Select a joint and an optional comparison
+joint. Drag across a time plot or use the mouse wheel to zoom all time plots together; double-click
+or press Escape to reset. Hover to inspect samples. Each chart exports PNG or the exact samples
+inside the selected time range as CSV. Summary metrics and spectra cover the full analysis phase
+indicated on screen; zooming does not recompute them.
+
+The `.deploynose` file contains full-resolution numeric curve data, metadata and analysis results.
+Display reduction preserves extrema so brief spikes remain visible. Raw DDS messages and full
+depth-image stacks stay in `recording.sqlite3`; preserve that archive for deeper analysis. The
+viewer currently accepts files up to 512 MiB after decompression. Its built-in demo is synthetic,
+and missing signals or incomplete recordings are marked explicitly.
+
+Use the state/target curves to distinguish a changing policy target from poor joint tracking. Use
+control intervals, inference time and state age to investigate timing jitter. Velocity-change rates
+and spectral peaks identify joints and times worth examining; the default spectrum band starts at
+5 Hz, which is an analysis band, not a fault threshold. Spectra exclude irregular or missing-tick
+windows, and motion metrics use the policy phase when its markers are available. IMU heading can
+drift and is not an external heading reference. `tau_est` is estimated torque, not a calibrated torque
+sensor. Unpopulated motor slots can remain zero; in particular, a 27-DoF robot lacks waist roll/pitch.
+
+**There is no measured base linear velocity or position in this G1 lowstate interface.** Joint speed
+changes and yaw response are measurable here; forward-speed tracking and trajectory drift need a
+validated odometry/VIO/motion-capture stream. Do not integrate the accelerometer and label the result
+as measured walking speed. The viewer/report cannot determine the cause of a fall from a single metric.

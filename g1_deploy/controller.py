@@ -37,15 +37,17 @@ _STATE_QUEUE_LEN = 128
 class G1ControlLink:
     """The controller's two DDS endpoints, plus the handshakes the synchronous mode needs."""
 
-    def __init__(self, num_motors: int = 29):
+    def __init__(self, num_motors: int = 29, *, recorder=None):
         """Create the ``rt/lowstate`` subscriber and the ``rt/lowcmd`` publisher.
 
         Args:
             num_motors: Motors to read and command.
         """
         self.num_motors = num_motors
+        self.recorder = recorder
         self._lock = threading.Lock()
         self._state: LowState_ | None = None
+        self._received_ns = 0
         self._crc = CRC()
         self._pub = ChannelPublisher("rt/lowcmd", LowCmd_)
         self._pub.Init()
@@ -57,8 +59,18 @@ class G1ControlLink:
         self._sub.Init(self._on_state, _STATE_QUEUE_LEN)
 
     def _on_state(self, msg: LowState_) -> None:
+        received_ns = time.monotonic_ns()
         with self._lock:
             self._state = msg
+            self._received_ns = received_ns
+        if self.recorder is not None:
+            self.recorder.message("lowstate", msg, received_ns)
+
+    @property
+    def snapshot(self) -> tuple[LowState_ | None, int]:
+        """Latest state and its host receipt time, read atomically."""
+        with self._lock:
+            return self._state, self._received_ns
 
     @property
     def state(self) -> LowState_ | None:
@@ -132,7 +144,13 @@ class G1ControlLink:
             motor.kd = float(kd[i])
             motor.tau = 0.0
         cmd.crc = self._crc.Crc(cmd)
-        self._pub.Write(cmd)
+        started_ns = time.monotonic_ns()
+        if self.recorder is not None:
+            self.recorder.message("lowcmd", cmd, started_ns)
+        result = self._pub.Write(cmd)
+        if self.recorder is not None:
+            self.recorder.arrays("write", started_ns, finished_ns=time.monotonic_ns(),
+                                 success=bool(result), step=self.recorder.step_index)
 
 
 def read_joint_state(state: LowState_, num_motors: int = 29) -> tuple[np.ndarray, np.ndarray]:

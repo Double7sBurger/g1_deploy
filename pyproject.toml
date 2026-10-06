@@ -23,16 +23,19 @@ dependencies = [
 #   git clone https://github.com/unitreerobotics/unitree_sdk2_python && pip install -e unitree_sdk2_python
 sim = ["mujoco>=3.1"]
 video = ["opencv-python>=4.8"]
+analysis = ["matplotlib>=3.6"]
 
 [project.scripts]
 g1-policy-loop = "scripts.run_policy_loop:main"
 g1-sim-loop = "scripts.run_sim_loop:main"
+g1-analyze = "scripts.analyze_deployment:main"
+deploynose = "scripts.deploynose:main"
 
 [tool.setuptools.packages.find]
 include = ["g1_deploy*", "scripts*"]
 
 [tool.setuptools.package-data]
-g1_deploy = ["data/*.json"]
+g1_deploy = ["data/*.json", "deploynose/*.html", "deploynose/*.css", "deploynose/*.js", "deploynose/*.svg"]
 
 [tool.ruff]
 line-length = 120

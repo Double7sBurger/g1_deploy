@@ -11,3 +11,4 @@ dist/
 Miniconda3-latest-*.sh
 MUJOCO_LOG.TXT
 terrain/*.png
+recordings/
