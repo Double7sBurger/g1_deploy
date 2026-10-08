@@ -1,0 +1,37 @@
+{
+  "test_date": "2026-10-08",
+  "models": [
+    {
+      "order": 1,
+      "name": "height35-student-s43-i16000",
+      "directory": "policies/height35-student-s43-i16000",
+      "checkpoint": "/home/henry/workspace/experiments/g1_distill_retry_20261007/downloads/g1-distill-retry-v1-1/height35-student-s43/train/model_15999.pt",
+      "policy_sha256": "55c6ade3903810f8b536fac236d2cc0f18a43fc2d58d187d021c052946194d05",
+      "contract_sha256": "40fd05dc88079b30a424ab5a331bca304e4f28d96667acabe4844d6227b429e0"
+    },
+    {
+      "order": 2,
+      "name": "height35-student-s44-i24000",
+      "directory": "policies/height35-student-s44-i24000",
+      "checkpoint": "/home/henry/workspace/experiments/g1_distill_retry_20261007/downloads/g1-distill-retry-v1-1/height35-student-s44/train/model_23999.pt",
+      "policy_sha256": "c67b40d475f750ef2511f639887359ab5248da1a0f02af13a1864c3721bd8435",
+      "contract_sha256": "fe7ced15c6bd5b73356493a546e37333be773e2b0be9fd5370d68f407b4eefa5"
+    },
+    {
+      "order": 3,
+      "name": "height35-e8096-s44-i12000",
+      "directory": "policies/height35-e8096-s44-i12000",
+      "checkpoint": "/home/henry/workspace/experiments/g1_distill_envs_20261007/downloads/g1-distill-envs-v1-1/height35-e8096-s44/train/model_11999.pt",
+      "policy_sha256": "b94653f0669d2e69b2f6e72bd0af2a81b40454f9d78b510888eae7d3f6743ae0",
+      "contract_sha256": "c71796310a65908eb36172befaf909605961190394062cba0edb82fd92b6d9df"
+    },
+    {
+      "order": 4,
+      "name": "torso010-e8096-s42-i12000",
+      "directory": "policies/torso010-e8096-s42-i12000",
+      "checkpoint": "/home/henry/workspace/experiments/g1_distill_envs_20261007/downloads/g1-distill-envs-v1-1/torso010-e8096-s42/train/model_11999.pt",
+      "policy_sha256": "588d89f0811a2aece14741aed3f3a3a2a7cbd67d7efaf806646214efeb9032e0",
+      "contract_sha256": "1d09a5c34bebfa73e1fd06484c95bffb66e9cae41718211845c6d58cee65bd72"
+    }
+  ]
+}
