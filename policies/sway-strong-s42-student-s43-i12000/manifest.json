@@ -1,0 +1,53 @@
+{
+  "name": "sway-strong-s42-student-s43-i12000",
+  "role": "User-selected hardware test candidate",
+  "hardware_validated": false,
+  "deployment_acceptance_complete": false,
+  "teacher": "sway-strong-s42-i6000",
+  "teacher_seed": 42,
+  "student_seed": 43,
+  "completed_updates": 12000,
+  "checkpoint_sha256": "beddadd37921d3d3f3f9fc2ccda3b8c08129c9b235ed0ab938afcec8a58b8dc2",
+  "policy_sha256": "926d6c8af22880d72c1dcd38f220778d09d7050ab852a6268426516c6cbde7af",
+  "contract_sha256": "d09b0ae7f06778c89c91b773f831abbc5164c13354179d9d2055cc8f16c76839",
+  "source_export": "/home/henry/workspace/experiments/g1_height35_sway_20261009/exports/sway-strong-s42-student-s43-i12000",
+  "source_checkpoint": "/home/henry/workspace/experiments/g1_height35_sway_20261009/students/milestones/sway-strong-s42-student-s43/model_11999.pt",
+  "export_max_abs_error": 0.0,
+  "teacher_unchanged": true,
+  "same_runtime_contract_as": "height35-student-s43-i16000, except checkpoint provenance path",
+  "input": {
+    "proprioception": 690,
+    "depth": [
+      3,
+      38,
+      64
+    ],
+    "action_dim": 43,
+    "actuated_motors": 29,
+    "control_dt_s": 0.02
+  },
+  "simulation_evidence": {
+    "scope": "Fixed30s original-MuJoCo side/front recordings; not hardware validation or repeated-trial success rates",
+    "flat_vx_command": 0.5,
+    "flat_mean_vx": 0.604898,
+    "flat_lateral_max_m": 0.698453,
+    "knee_mean_deg": 53.7708,
+    "torso_roll_pitch_std_deg": [
+      0.258512,
+      0.19302
+    ],
+    "stairs20_up_vx05_platform_s": 10.52,
+    "stairs30_up_vx05_failure_s": 5.26,
+    "stairs35_up_vx05_failure_s": 11.04,
+    "final_stop_20_30s_net_displacement_m": 1.2819,
+    "final_stop_heading_error_deg": -1.42,
+    "assessment": "/home/henry/workspace/experiments/g1_height35_sway_20261009/inspection-1510/assessment.html",
+    "videos": "/home/henry/workspace/experiments/g1_height35_sway_20261009/raw-v0.5/sway-strong-s42-student-s43-i12000"
+  },
+  "known_limits": [
+    "Overshoots0.5m/s command in this MuJoCo test.",
+    "Zero-velocity command does not guarantee remaining still; final stop drift1.28m.",
+    "Fails30cm slow ascent and35cm ascent/descent in recorded tests."
+  ],
+  "hardware_commands_sent_by_assistant": false
+}

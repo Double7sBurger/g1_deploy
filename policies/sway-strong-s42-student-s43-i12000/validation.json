@@ -1,0 +1,39 @@
+{
+  "validated_at": 1791532010.9798636,
+  "python": "/home/henry/miniconda3/envs/env_isaaclab/bin/python",
+  "python_version": "3.12.13",
+  "torch_version": "2.11.0+cu128",
+  "joint_order_match": true,
+  "obs_1d": 690,
+  "depth_shape": [
+    3,
+    38,
+    64
+  ],
+  "action_dimension": 43,
+  "actuated_motors": 29,
+  "default_pose_match": true,
+  "pd_gains_match": true,
+  "action_scale_applied": true,
+  "target_formula_match": true,
+  "control_dt_match": true,
+  "same_height35_runtime_contract": true,
+  "cpu_inference_ms": {
+    "samples": 200,
+    "p50": 0.20841695368289948,
+    "p95": 0.23920225212350485,
+    "max": 1.750703901052475,
+    "scope": "TorchScript synthetic fixed-input CPU inference only; not full hardware control timing."
+  },
+  "export_equivalence": {
+    "verified_at": 1791525591.511049,
+    "max_abs_error": 0.0,
+    "reused_on_same_sha256": true
+  },
+  "policy_sha256": "926d6c8af22880d72c1dcd38f220778d09d7050ab852a6268426516c6cbde7af",
+  "contract_sha256": "d09b0ae7f06778c89c91b773f831abbc5164c13354179d9d2055cc8f16c76839",
+  "hardware_cli_help_imports_passed": true,
+  "hardware_commands_sent": false,
+  "hardware_validated": false,
+  "deployment_acceptance_complete": false
+}

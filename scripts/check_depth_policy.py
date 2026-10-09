@@ -22,6 +22,7 @@ def main() -> None:
 
     contract = load_contract(args.export_dir)
     core.set_policy_backend("g1_29dof")
+    core.set_action_scale(contract["action_scale"])
 
     # The exported policy has to agree with the deployment's joint table, or every target lands on
     # the wrong motor while every shape checks out.
