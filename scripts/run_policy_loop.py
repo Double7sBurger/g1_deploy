@@ -145,6 +145,16 @@ def _main(cleanup) -> int:
     )
     parser.add_argument("--depth_port", type=int, default=None, help="UDP port to receive frames on.")
     parser.add_argument(
+        "--leapp", default=None, metavar="YAML",
+        help="Use the official LEAPP YAML/ONNX pipeline instead of policy.pt. Requires --depth"
+        " for the matching contract.json and camera settings; policy.pt is not loaded.",
+    )
+    parser.add_argument(
+        "--leapp_depth_rotation", type=int, choices=(0, 180), default=180,
+        help="Rotate incoming depth before LEAPP [deg]. Default 180 compensates the current"
+        " Newton export's internal 180-degree flip for the existing G1 camera stream.",
+    )
+    parser.add_argument(
         "--depth_echo",
         type=int,
         default=None,
@@ -175,16 +185,6 @@ def _main(cleanup) -> int:
         " commands but fail on lateral ones -- runaway one way, stalled the other -- so on hardware"
         " a stick nudged sideways is a fall, not a strafe.",
     )
-    parser.add_argument(
-        "--on_fall", choices=("damp", "catch"), default="damp",
-        help="What to do when the fall threshold trips. 'damp' goes limp, which is right for ending"
-        " a run and lets the arms and head arrive first. 'catch' folds to the start pose at reduced"
-        " stiffness for --catch_s and then damps, so the robot lands folded and in the pose it needs"
-        " to try again. Neither prevents the fall: the threshold trips with the trunk already about"
-        " 47 degrees over.")
-    parser.add_argument("--catch_s", type=float, default=2.0, help="How long --on_fall catch folds.")
-    parser.add_argument("--catch_kp_scale", type=float, default=hw.CATCH_KP_SCALE,
-                        help="Fraction of the run's stiffness to catch with.")
     parser.add_argument(
         "--cmd_echo", type=int, default=None, metavar="PORT",
         help="Send the commanded velocity to this UDP port so run_sim_loop.py --cmd_port can draw"
@@ -379,9 +379,14 @@ def _main(cleanup) -> int:
         parser.error("--duration must be >= 0, or 'inf' to run until stopped")
     if (args.policy is None) == (args.depth is None):
         parser.error("give exactly one of --policy or --depth")
+    if args.leapp and args.depth is None:
+        parser.error("--leapp requires --depth with the matching export contract")
+    if args.leapp and args.action_limit is not None:
+        parser.error("--action_limit is not supported by LEAPP; its graph already outputs joint targets")
 
     core.set_policy_backend(args.policy_physics)
     contract = depth_frames = None
+    leapp_runner = None
     if args.depth is None:
         # A directory is an export: policy.pt beside the contract it was trained under. The action
         # scale is the part that matters here -- the ms line replaced the blanket 0.5 with a
@@ -419,7 +424,16 @@ def _main(cleanup) -> int:
         core.set_action_scale(contract["action_scale"])
         print(f"[..] {Path(args.depth).name}: action scale from the contract, "
               f"{'per-joint' if isinstance(contract['action_scale'], dict) else contract['action_scale']}")
-        policy = load_depth_policy(str(Path(args.depth) / "policy.pt"), contract)
+        if args.leapp:
+            from g1_deploy.leapp import G1LeappPolicyRunner
+
+            leapp_runner = G1LeappPolicyRunner(
+                args.leapp, contract, depth_rotation=args.leapp_depth_rotation,
+            )
+            policy = None
+            print(f"[ok] official LEAPP loaded and warmed: {args.leapp}")
+        else:
+            policy = load_depth_policy(str(Path(args.depth) / "policy.pt"), contract)
         shape = (int(contract["depth_shape"][1]), int(contract["depth_shape"][2]))
         if args.blind == "offline":
             print(f"[warn] --blind offline: the depth link is not opened. The policy is fed a"
@@ -437,6 +451,9 @@ def _main(cleanup) -> int:
             print(f"[ok] depth stream live ({depth_frames.received} frames)")
     default_pose = build_default_pose()
     kp, kd = core.control_gains()
+    if leapp_runner is not None:
+        default_pose = leapp_runner.default_pose
+        kp, kd = leapp_runner.kp, leapp_runner.kd
 
     if args.imu_tilt is not None:
         try:
@@ -524,7 +541,10 @@ def _main(cleanup) -> int:
 
         recorder = create_recorder(args, contract, core)
         cleanup.callback(recorder.close)
-        policy = recorder.wrap_policy(policy)
+        if leapp_runner is None:
+            policy = recorder.wrap_policy(policy)
+        else:
+            leapp_runner.recorder = recorder
         recorder.event("setup")
 
     if args.real:
@@ -645,13 +665,16 @@ def _main(cleanup) -> int:
         commander.face(measured)
         print(f"[..] heading target seeded from the robot: {np.rad2deg(measured):+.1f} deg (world)")
 
-    if args.depth is None:
+    if leapp_runner is not None:
+        runner = leapp_runner
+    elif args.depth is None:
         runner = core.G1PolicyRunner(policy)
     else:
         from g1_deploy.depth import G1DepthPolicyRunner
 
         runner = G1DepthPolicyRunner(policy, contract)
-    runner.reset()
+    if leapp_runner is None:
+        runner.reset()
 
     physics = (
         "external simulator or robot"
@@ -848,16 +871,9 @@ def _main(cleanup) -> int:
             recorder.step_index = -1
         if args.real:
             # Every exit path ends limp: normal end, fall, operator Ctrl-C, or an exception mid-loop.
-            # A fall may fold first, but --on_fall catch damps at the end of its own fold.
-            if fell_at is not None and args.on_fall == "catch":
-                if recorder is not None:
-                    recorder.event("catch")
-                hw.catch_pose(link, default_pose, kp, kd, mode_machine, core.CONTROL_DT,
-                              args.catch_s, args.catch_kp_scale)
-            else:
-                if recorder is not None:
-                    recorder.event("damp")
-                hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+            if recorder is not None:
+                recorder.event("damp")
+            hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
         if env is not None:
             env.close()
         if echo_sock is not None:

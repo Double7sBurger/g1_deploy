@@ -189,12 +189,64 @@ Three things will stop a run rather than let it continue on bad input: the first
 before the operator is prompted (20 s), the newest frame must be under `--depth_max_age` (200 ms, ten
 control periods), and the contract's joint order must match `--policy_physics`.
 
+To preview and record the consumed depth while the policy runs, add `--depth_echo 5602` to the
+policy command and use a separate terminal on the Mac:
+
+```bash
+conda activate deploy
+python scripts/view_depth.py --port 5602 --window --gray --hz 20 --timeout 360 --record
+```
+
+Install the existing video extra (`python -m pip install 'opencv-python>=4.8'`) if needed.
+`--record` creates `recordings/depth_<timestamp>.mp4`; pass `--record path.mp4` to choose the name.
+Ctrl+C in the viewer terminal, or closing the window, finalizes the MP4 without stopping the policy.
+The video uses the preview's grayscale/colour settings, zoom and `--hz` frame rate; it is a visual
+recording, not raw metric depth. It samples the latest frame and holds the last image if the stream
+pauses. The policy's echo starts after alignment, when policy execution begins. For camera-only
+preview/recording, use port 5601 while the policy is not using it; two receivers cannot share it.
+
 That 200 ms is measured, not guessed: the worst frame age seen in rehearsal is **32 ms**, across flat
 and generated terrain, with and without a viewer, and with the policy running in the same process.
 The limit started at 100 ms because five control periods sounded reasonable, and a lone hiccup
 tripped it at 103 ms with zero frames dropped — a limit three times the observed worst case is too
 tight to survive one stall. Every run now prints the age distribution, so a trip can be read as
 either an outlier (`p99.9` far below the limit) or a machine that cannot keep up (`p99.9` near it).
+
+### Official LEAPP YAML/ONNX pipelines
+
+Install the optional runtime with `python -m pip install -e '.[leapp]'`. Keep the official
+YAML, ONNX and initial-state safetensors together. Add `--leapp` to the usual depth command:
+
+```bash
+python scripts/run_policy_loop.py --real --align --teleop --no_strafe \
+  --depth policies/height35-student-s43-i16000 \
+  --leapp /path/to/exported-policy/Isaac-Velocity-Rough-G1-29Dof-AirTime100-Yms-DepthDistill.yaml \
+  --policy_physics g1_29dof --vx 0.0 --duration inf --ramp_s 3.0 \
+  --domain_id 0 --interface en6 --depth_echo 5602
+```
+
+With `--leapp`, `--depth` supplies the matching `contract.json`; `policy.pt` is not loaded.
+Without `--leapp`, the existing TorchScript path is unchanged. The adapter calls the official
+`leapp.InferenceManager`, which owns normalization, history, previous actions and target scaling.
+The YAML supplies joint order and PD gains; the contract supplies the start pose and absent-finger
+positions. YAML and contract joint orders must agree with `--policy_physics`.
+
+The current Newton-exported graph includes a 180-degree image flip. `--leapp_depth_rotation 180`
+(default) converts the existing G1 camera stream to that graph's input convention, retaining the
+same image orientation at the network. Use `0` only for a stream already in the graph's convention.
+Nonpositive/nonfinite camera pixels become far range as in the existing G1 deployment. No depth
+normalization or history is applied outside LEAPP. This sensor convention differs from passing raw
+zero-depth pixels directly to the exported graph, where zero means near range.
+
+Loading and warm-up happen before control ownership or ramping. The existing alignment, depth-age
+check, remote stop and damping flow apply. `--action_limit` is rejected because the exported graph
+already produces joint targets; `--clamp_targets` still works. Recordings use `leapp_policy` for
+graph inputs and joint targets, and include the YAML and artifact hashes in their metadata.
+
+Isaac Lab's official `leapp deploy` command runs the bundle **in simulation**. Its `InferenceManager`
+can also be called independently; `g1_deploy.leapp.G1LeappPolicyRunner` exposes this adapter without
+importing the control script or opening DDS. A separate hardware entry point still needs state,
+camera, scheduling and motor I/O.
 
 ### Rehearsing it
 

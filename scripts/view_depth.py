@@ -3,17 +3,17 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Watch the depth stream the policy is reading, as text. Works over SSH, needs no display.
+"""Preview or record the depth stream as text, a window, or an MP4 video.
 
 Points at the same UDP port the control loop listens on, so it shows exactly what the policy sees --
 whether the frames come from ``run_sim_loop.py --depth`` or from ``depth_publisher.py`` on the
 robot's PC2. The renderer's viewer shows the robot; this shows the *observation*, which is the thing
 that can be silently wrong.
 
-Run it beside the control loop rather than instead of it: two UDP sockets on the same port both
-receive, because the publisher sends to one address and the OS delivers to every bound socket only
-when they ask to share the port. They do not by default, so start this **before** the control loop,
-or give it its own port with a second publisher. The ``--port`` default matches the control loop's.
+With a running policy, enable ``run_policy_loop.py --depth_echo 5602`` and view port 5602.
+Port 5601 can be viewed directly only while the control loop is not using it. The echo starts when
+the policy engages, not during ramp/alignment. MP4 recording samples the latest frame at ``--hz``;
+Ctrl+C or closing the window finalizes the video without stopping the policy process.
 
 What to look for:
 
@@ -28,11 +28,15 @@ Usage::
 
     python scripts/view_depth.py --port 5601
     python scripts/view_depth.py --port 5601 --once     # one frame, then exit
+    python scripts/view_depth.py --port 5602 --window --gray --hz 20 --timeout 360 --record
 """
 
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+from pathlib import Path
+import signal
 import time
 
 import numpy as np
@@ -100,7 +104,60 @@ def colourise(frame: np.ndarray, max_range: float, gray: bool = False) -> np.nda
     return rgb
 
 
-def run_window(rx, args) -> int:
+class VideoRecorder:
+    """Stream displayed frames to MP4, preserving elapsed time when redraws are late."""
+
+    def __init__(self, path: str, width: int, height: int, fps: float, zoom: int):
+        try:
+            import cv2
+        except ImportError as exc:
+            raise RuntimeError("MP4 recording needs: python -m pip install 'opencv-python>=4.8'") from exc
+        self.path = Path(path)
+        if self.path.exists():
+            raise FileExistsError(f"refusing to overwrite {self.path}")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.cv2 = cv2
+        self.size = (width * zoom, height * zoom)
+        self.fps = fps
+        self.writer = cv2.VideoWriter(str(self.path), cv2.VideoWriter_fourcc(*"mp4v"), fps, self.size)
+        if not self.writer.isOpened():
+            self.writer.release()
+            raise OSError(f"cannot open MP4 writer: {self.path}")
+        self.started = None
+        self.frames = 0
+        self.previous = None
+        self.closed = False
+        print(f"[recording] {self.path} ({fps:g} fps); Ctrl+C to save", flush=True)
+
+    def write(self, rgb: np.ndarray) -> None:
+        now = time.monotonic()
+        if self.started is None:
+            self.started = now
+        target = int((now - self.started) * self.fps) + 1
+        frame = self.cv2.resize(rgb, self.size, interpolation=self.cv2.INTER_NEAREST)
+        frame = self.cv2.cvtColor(frame, self.cv2.COLOR_RGB2BGR)
+        # Fill missed display intervals with the previous image instead of speeding up playback.
+        while self.frames < target - 1:
+            self.writer.write(self.previous)
+            self.frames += 1
+        if self.frames < target:
+            self.writer.write(frame)
+            self.frames += 1
+        self.previous = frame
+
+    def close(self) -> None:
+        if self.closed:
+            return
+        self.closed = True
+        self.writer.release()
+        if self.frames:
+            print(f"[saved] {self.path} — {self.frames} frames, {self.frames / self.fps:.2f} s", flush=True)
+        else:
+            self.path.unlink(missing_ok=True)
+            print("[recording] no frames received; no video saved", flush=True)
+
+
+def run_window(rx, args, recorder=None) -> int:
     """Show the stream in a tkinter window until it is closed.
 
     Args:
@@ -121,11 +178,31 @@ def run_window(rx, args) -> int:
     status = tk.Label(root, font=("Menlo", 11), anchor="w", justify="left")
     status.pack(fill="x")
     keep = {}
+    stopping = False
+    callback_error = None
+
+    def callback_failed(_kind, exc, _traceback):
+        nonlocal callback_error
+        callback_error = exc
+        root.quit()
+
+    root.report_callback_exception = callback_failed
+
+    def stop(_signum, _frame):
+        # Tk catches exceptions raised inside callbacks; request shutdown instead of raising.
+        nonlocal stopping
+        stopping = True
 
     def tick():
+        if stopping:
+            root.quit()
+            return
         frame, age = rx.latest()
         if frame is not None:
-            img = Image.fromarray(colourise(frame, args.max_range, args.gray))
+            rgb = colourise(frame, args.max_range, args.gray)
+            if recorder is not None:
+                recorder.write(rgb)
+            img = Image.fromarray(rgb)
             img = img.resize((frame.shape[1] * args.zoom, frame.shape[0] * args.zoom), Image.NEAREST)
             keep["img"] = ImageTk.PhotoImage(img)
             label.configure(image=keep["img"])
@@ -140,13 +217,20 @@ def run_window(rx, args) -> int:
             ))
         root.after(int(1000 / max(1.0, args.hz)), tick)
 
-    tick()
+    previous_sigint = signal.signal(signal.SIGINT, stop)
     try:
+        tick()
         root.mainloop()
+        if callback_error is not None:
+            raise callback_error
     except KeyboardInterrupt:
         pass
     finally:
-        rx.close()
+        signal.signal(signal.SIGINT, previous_sigint)
+        try:
+            root.destroy()
+        except tk.TclError:
+            pass  # The window manager may already have destroyed it.
     return 0
 
 
@@ -216,28 +300,37 @@ def main() -> int:
                          " arrays are the same shape either way, so a difference in which rows come"
                          " back empty is invisible in a picture and obvious in the numbers.")
     ap.add_argument("--save_n", type=int, default=30, help="Frames to collect for --save.")
+    ap.add_argument("--record", nargs="?", const="", default=None, metavar="MP4",
+                    help="Record until Ctrl+C or window close. Default: recordings/depth_<timestamp>.mp4."
+                         " Uses --hz, --zoom and --gray; requires the video extra (OpenCV).")
     ap.add_argument("--timeout", type=float, default=20.0)
     args = ap.parse_args()
+    if not np.isfinite(args.hz) or args.hz <= 0 or args.zoom < 1:
+        ap.error("--hz must be finite and positive, and --zoom must be at least 1")
+    if args.record is not None:
+        if args.save or args.once:
+            ap.error("--record cannot be combined with --save or --once")
+        if not args.record:
+            args.record = str(Path("recordings") / f"depth_{datetime.now():%Y%m%d_%H%M%S_%f}.mp4")
+        if Path(args.record).suffix.lower() != ".mp4":
+            ap.error("--record output must end in .mp4")
 
     rx = DepthReceiver((args.height, args.width), port=args.port)
+    recorder = None
     print(f"[..] listening on UDP {args.port} for {args.width}x{args.height} frames ...")
     try:
         rx.wait_for_frame(timeout=args.timeout)
-    except TimeoutError as exc:
-        print(f"[FAIL] {exc}")
-        print("       Is the publisher running, and pointed at this machine? If the control loop is")
-        print("       already bound to this port, start this first or use a separate port.")
-        rx.close()
-        return 1
+        if args.save:
+            return run_save(rx, args)
+        if args.record is not None:
+            recorder = VideoRecorder(args.record, args.width, args.height, args.hz, args.zoom)
+        if args.window:
+            return run_window(rx, args, recorder)
 
-    if args.save:
-        return run_save(rx, args)
-    if args.window:
-        return run_window(rx, args)
-
-    try:
         while True:
             frame, age = rx.latest()
+            if recorder is not None:
+                recorder.write(colourise(frame, args.max_range, args.gray))
             valid = frame[frame > 0]
             head = (
                 f"seq-received {rx.received}  dropped {rx.dropped}  age {age * 1000:5.1f} ms"
@@ -252,8 +345,13 @@ def main() -> int:
             time.sleep(1.0 / max(0.5, args.hz))
     except KeyboardInterrupt:
         print("\n[..] interrupted")
+    except (TimeoutError, OSError, RuntimeError) as exc:
+        print(f"[FAIL] {exc}")
+        return 1
     finally:
         rx.close()
+        if recorder is not None:
+            recorder.close()
     return 0
 
 

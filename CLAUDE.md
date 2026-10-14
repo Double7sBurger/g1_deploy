@@ -6,7 +6,8 @@ will cost you an hour if you learn them by hitting them.
 
 ## Environment
 
-Conda env **`env_isaaclab`**. Companion checkouts the code expects by absolute path:
+On this Mac (verified 2026-10-14), conda env **`deploy`**, Python 3.10.20.
+Companion checkouts the code expects by absolute path:
 
 | path | why |
 |---|---|
@@ -14,8 +15,14 @@ Conda env **`env_isaaclab`**. Companion checkouts the code expects by absolute p
 | `~/workspace/unitree_sdk2_python` | `unitree_sdk2py`, installed `-e` |
 | `~/workspace/unitree_rl_gym` | reference only — source of the remote-controller bit layout |
 
-Older notes call it `deploy`; that env no longer exists on this machine. Running from the
-`isaaclab-dev` uv venv instead fails at import with `No module named 'unitree_sdk2py'`.
+The earlier `env_isaaclab` note described another environment; `deploy` exists on this Mac.
+The Isaac Lab simulation environment and the G1 deployment environment are separate.
+
+**Official LEAPP depth deployment worked on the physical G1 on 2026-10-14.** See `Leapp.md`
+for the exact commands and recorded evidence. `--leapp YAML` selects the official runtime;
+omitting it preserves TorchScript. Never infer compatibility of another policy from its `.pt`
+extension: the new `policies/Junnosuke` models need 937 inputs and 29 outputs, unlike this
+runner's 690/43 contract, and are awaiting their complete training configuration.
 
 **Generated terrain scenes carry relative paths.** `make_terrain.py` writes `meshdir` relative to
 the scene file and names the height field by bare filename, and `assets_for` scans the scene's own
@@ -61,8 +68,8 @@ startup when it is not 5.
 | camera mount, measured | 48.2° | 45.4° |
 | PC2 | conda env, `pyrealsense2` installed | bare Unitree image |
 
-**Everything that handles the second robot is off by default.** `--lock_waist`, `--blind offline`
-and `--on_fall catch` are opt-in; `warn_joint_count` returns without printing on `mode_machine 5`;
+**Everything that handles the second robot is off by default.** `--lock_waist` and `--blind offline`
+are opt-in; `warn_joint_count` returns without printing on `mode_machine 5`;
 no measured value from either robot is written into the code or into `policies/*/contract.json`.
 Running the first robot means passing none of these, and the behaviour is what it always was.
 
@@ -248,8 +255,6 @@ Kill stray simulators between runs (`pkill -f run_sim_loop`) — they leak into 
 
 ## Outstanding
 
-Bring-up is still two processes: `--dry_run` damps and exits, then the policy run ramps again, which
-leaves an `rt/lowcmd` gap while the operator lowers the hoist. Unitree's own `unitree_rl_gym` recipe
-is one process that keeps publishing throughout and gates each escalation on a button press. Folding
-`hold_pose` into "hold and publish until a keypress" would close the gap and make the hold-and-look
-free on every run. Agreed as the right shape; not built.
+The continuous bring-up flow is implemented: use `--align` for go → ramp → hold → go2 → policy,
+with commands continuing during alignment. A separate `--dry_run` is not needed merely to obtain
+the hold-and-look phase. See `Leapp.md` for the current hardware runbook.

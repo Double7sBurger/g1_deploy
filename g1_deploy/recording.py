@@ -170,7 +170,8 @@ def create_recorder(args, contract, core) -> DeploymentRecorder:
     from g1_deploy.hardware import MOTOR_NAMES
     from unitree_sdk2py.idl.unitree_hg.msg.dds_ import IMUState_, LowCmd_, LowState_, MotorCmd_, MotorState_
 
-    source = Path(args.policy or args.depth).resolve()
+    leapp_path = getattr(args, "leapp", None)
+    source = Path(leapp_path or args.policy or args.depth).resolve()
     policy = source / "policy.pt" if source.is_dir() else source
     directory = Path(args.log_dir or "recordings") / (datetime.now().strftime("%Y%m%d_%H%M%S_%f") + "_" + source.stem)
     repo = Path(__file__).resolve().parents[1]
@@ -179,7 +180,9 @@ def create_recorder(args, contract, core) -> DeploymentRecorder:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout.strip()
         diff = subprocess.run(["git", "diff", "HEAD"], cwd=repo, capture_output=True, text=True).stdout
     versions = {}
-    for package in ("numpy", "torch", "cyclonedds", "unitree_sdk2py"):
+    for package in ("numpy", "torch", "cyclonedds", "unitree_sdk2py") + (
+        ("leapp", "onnxruntime") if leapp_path else ()
+    ):
         try:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
@@ -203,6 +206,20 @@ def create_recorder(args, contract, core) -> DeploymentRecorder:
                     note="DDS receipt/command-write times use host monotonic clock; robot tick is a separate clock. "
                          "No measured base position or linear velocity is available in LowState. "
                          "CDR blobs preserve all 35 motor slots; the deployment commands the first 29.")
+    if leapp_path:
+        import yaml
+
+        description = yaml.safe_load(source.read_text())
+        artifacts = [source] + [source.parent / model["parameters"]["model_path"]
+                                for model in description["models"].values()]
+        initial = description["pipeline"].get("initial_values")
+        if initial:
+            artifacts.append(source.parent / initial)
+        metadata["leapp"] = dict(
+            description=description,
+            artifact_sha256={str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in artifacts},
+            recording_kind="leapp_policy", output="joint_target in radians, not raw actions",
+        )
     recorder = DeploymentRecorder(directory, metadata)
     try:
         (directory / "deployment.diff").write_text(diff)

@@ -142,6 +142,12 @@ def main() -> int:
         " fed on hardware.",
     )
     ap.add_argument("--dump", default=None, help="Write sampled depth frames here as .npz.")
+    ap.add_argument("--out", default=None,
+                    help="Write per-episode survival and distance here as .npz. Episode n uses the"
+                         " same initial state and command sequence in every run, so two runs that"
+                         " differ only in --blind are paired episode by episode -- and a paired"
+                         " comparison over 45 episodes says something a difference of two"
+                         " percentages over three seeds does not.")
     ap.add_argument(
         "--lock_waist", action="store_true",
         help="Emulate a 27-DoF G1: pin waist_roll and waist_pitch at zero and give them no"
@@ -250,6 +256,15 @@ def main() -> int:
           f"   over {len(moving)} moving episodes")
     print("     'survived' is only 'did not fall'; the speed ratio is what says whether it walked.")
 
+    if args.out:
+        np.savez_compressed(
+            args.out,
+            survived=survived,
+            fell=np.array([float(r["fell"]) for r in results]),
+            distance=np.array([float(r["distance"]) for r in results]),
+            export_dir=args.export_dir, blind=args.blind, xml=args.xml,
+        )
+        print(f"[ok] {len(results)} episodes -> {args.out}")
     if dump:
         np.savez_compressed(args.dump, frames=np.asarray(dump, dtype=np.float32))
         print(f"[ok] {len(dump)} depth frames -> {args.dump}")

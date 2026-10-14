@@ -34,13 +34,14 @@ DEFAULT_XML = Path.home() / "workspace/unitree_mujoco/unitree_robots/g1/scene_29
 _WORKER: dict = {}
 
 
-def _init_worker(policy_path: str, backend: str, xml: str, timeconst: float) -> None:
+def _init_worker(policy_path: str, backend: str, xml: str, timeconst: float,
+                 foot_plate: bool = False) -> None:
     """Load the model and policy once per worker process."""
     core.set_policy_backend(backend)
     module = torch.jit.load(policy_path)
     module.eval()
     torch.set_num_threads(1)
-    _WORKER.update(module=module, xml=xml, timeconst=timeconst)
+    _WORKER.update(module=module, xml=xml, timeconst=timeconst, foot_plate=foot_plate)
 
 
 def _policy(obs: np.ndarray) -> np.ndarray:
@@ -60,11 +61,35 @@ def _place_on_ground(model: mujoco.MjModel, data: mujoco.MjData) -> float:
     return float(data.qpos[2])
 
 
+def _build_model(xml: str, foot_plate: bool) -> mujoco.MjModel:
+    """Compile the scene, optionally with training's foot geometry.
+
+    Kept in step with ``benchmark_depth_mujoco.py``, which has had ``--foot_plate`` all along.
+    Scoring a blind policy on four contact spheres per foot against a vision policy on the solid
+    plate compares the feet as much as the policies -- measured, the plate alone moved survival from
+    80% to 86.7%.
+
+    Args:
+        xml: Scene to compile.
+        foot_plate: Replace each foot's contact spheres with training's solid plate.
+
+    Returns:
+        The compiled model.
+    """
+    if not foot_plate:
+        return mujoco.MjModel.from_xml_path(xml)
+    from g1_deploy.sim.mjcf import compile_model, foot_plate_override, resolve_includes
+
+    root = resolve_includes(Path(xml))
+    foot_plate_override(root)
+    return compile_model(root, xml)
+
+
 def run_episode(job: tuple[str, int]) -> dict:
     """Run one benchmark episode and return its scored metrics."""
     suite, index = job
     episode = bp.Episode(suite, index)
-    model = mujoco.MjModel.from_xml_path(_WORKER["xml"])
+    model = _build_model(_WORKER["xml"], _WORKER["foot_plate"])
     if _WORKER["timeconst"] > 0:
         model.geom_solref[:, 0] = _WORKER["timeconst"]
     data = mujoco.MjData(model)
@@ -160,6 +185,10 @@ def main() -> int:
     parser.add_argument("--suite", choices=("hold", "sequence"), default="hold")
     parser.add_argument("--repeats", type=int, default=3, help="Seeds per hold-grid entry, or episodes for sequence.")
     parser.add_argument("--xml", default=str(DEFAULT_XML))
+    parser.add_argument("--foot_plate", action="store_true",
+                        help="Swap each foot's four contact spheres for the solid plate training"
+                             " uses, as benchmark_depth_mujoco.py does. Pass it to both, or to"
+                             " neither, when comparing a blind policy against a vision one.")
     parser.add_argument("--contact_timeconst", type=float, default=0.005)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--out", default="deploy/benchmark_mujoco.npz")
@@ -173,7 +202,8 @@ def main() -> int:
     with ctx.Pool(
         args.workers,
         initializer=_init_worker,
-        initargs=(args.policy, args.policy_physics, args.xml, args.contact_timeconst),
+        initargs=(args.policy, args.policy_physics, args.xml, args.contact_timeconst,
+                  args.foot_plate),
     ) as pool:
         results = pool.map(run_episode, jobs)
 

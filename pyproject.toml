@@ -24,6 +24,7 @@ dependencies = [
 sim = ["mujoco>=3.1"]
 video = ["opencv-python>=4.8"]
 analysis = ["matplotlib>=3.6"]
+leapp = ["leapp==0.6.0", "onnxruntime>=1.23.2"]
 
 [project.scripts]
 g1-policy-loop = "scripts.run_policy_loop:main"
