@@ -134,6 +134,11 @@ def _main(cleanup) -> int:
     parser.add_argument("--policy", default=None,
                         help="TorchScript policy exported by isaaclab play. Omit when --depth is"
                              " given; the export directory holds its own policy.pt.")
+    parser.add_argument("--tracking", default=None, metavar="EXPORT_DIR",
+                        help="Play one motion-tracking clip from policy.pt, contract.json and motion.npz."
+                             " Uses the bundle's 29-joint layout and gains, not --policy_physics.")
+    parser.add_argument("--tracking_max_tilt_error", type=float, default=0.8,
+                        help="Tracking stop threshold: torso tilt error against the reference [rad].")
     parser.add_argument(
         "--depth",
         default=None,
@@ -377,8 +382,13 @@ def _main(cleanup) -> int:
         parser.error("--blind only means something with --depth")
     if args.duration < 0:
         parser.error("--duration must be >= 0, or 'inf' to run until stopped")
-    if (args.policy is None) == (args.depth is None):
-        parser.error("give exactly one of --policy or --depth")
+    if sum(value is not None for value in (args.policy, args.depth, args.tracking)) != 1:
+        parser.error("give exactly one of --policy, --depth or --tracking")
+    if args.tracking:
+        if args.teleop or args.remote or args.heading is not None or args.cmd_echo is not None:
+            parser.error("--tracking follows its reference; velocity teleop, heading and cmd_echo do not apply")
+        if not np.isfinite(args.tracking_max_tilt_error) or not 0 < args.tracking_max_tilt_error <= np.pi:
+            parser.error("--tracking_max_tilt_error must be in (0, pi] radians")
     if args.leapp and args.depth is None:
         parser.error("--leapp requires --depth with the matching export contract")
     if args.leapp and args.action_limit is not None:
@@ -387,7 +397,14 @@ def _main(cleanup) -> int:
     core.set_policy_backend(args.policy_physics)
     contract = depth_frames = None
     leapp_runner = None
-    if args.depth is None:
+    tracking_runner = None
+    if args.tracking:
+        from g1_deploy.tracking import G1TrackingPolicyRunner
+
+        tracking_runner = G1TrackingPolicyRunner(args.tracking)
+        contract = tracking_runner.contract
+        policy = tracking_runner.policy
+    elif args.depth is None:
         # A directory is an export: policy.pt beside the contract it was trained under. The action
         # scale is the part that matters here -- the ms line replaced the blanket 0.5 with a
         # per-joint table, and driving such a policy at 0.5 asks the hip for four and a half times
@@ -454,6 +471,9 @@ def _main(cleanup) -> int:
     if leapp_runner is not None:
         default_pose = leapp_runner.default_pose
         kp, kd = leapp_runner.kp, leapp_runner.kd
+    elif tracking_runner is not None:
+        default_pose = tracking_runner.default_pose
+        kp, kd = tracking_runner.kp, tracking_runner.kd
 
     if args.imu_tilt is not None:
         try:
@@ -473,7 +493,10 @@ def _main(cleanup) -> int:
     )
     # A run without --duration is the normal way to teleop; n_steps None means "until Ctrl-C".
     n_steps = None if np.isinf(args.duration) else int(round(args.duration / core.CONTROL_DT))
-    duration_txt = "unbounded" if n_steps is None else f"{args.duration:.0f}s"
+    if tracking_runner is not None:
+        n_steps = tracking_runner.num_steps if n_steps is None else min(n_steps, tracking_runner.num_steps)
+        args.duration = n_steps * core.CONTROL_DT
+    duration_txt = "unbounded" if n_steps is None else f"{args.duration:g}s"
 
     bridge = env = None
     if args.sim != "none":
@@ -539,10 +562,12 @@ def _main(cleanup) -> int:
     if not args.no_log and (args.real or args.log_dir):
         from g1_deploy.recording import create_recorder
 
-        recorder = create_recorder(args, contract, core)
+        recorder = create_recorder(args, contract, core, tracking=tracking_runner)
         cleanup.callback(recorder.close)
         if leapp_runner is None:
             policy = recorder.wrap_policy(policy)
+            if tracking_runner is not None:
+                tracking_runner.policy = policy
         else:
             leapp_runner.recorder = recorder
         recorder.event("setup")
@@ -587,6 +612,11 @@ def _main(cleanup) -> int:
         mode_machine = int(link.wait_for_state().mode_machine)
         warn_joint_count(mode_machine)
 
+    if tracking_runner is not None and mode_machine != 5:
+        if env is not None:
+            env.close()
+        raise ValueError("These tracking policies require mode_machine 5 (29 DoF, including all three waist joints)")
+
     if args.real:
         # The one and only operator gate, and it comes before anything moves. There must be no
         # blocking prompt between the ramp and engaging the policy: nothing sends rt/lowcmd while
@@ -600,7 +630,8 @@ def _main(cleanup) -> int:
                 f" {args.hold_s:.1f}s. The policy is never engaged."
                 if args.dry_run
                 else f">>> This ramps over {args.ramp_s:.1f}s and then runs the policy IMMEDIATELY"
-                f" for {duration_txt} at vx={args.vx:+.2f} vy={args.vy:+.2f}."
+                + (f" for {duration_txt}, following the reference motion." if tracking_runner is not None
+                   else f" for {duration_txt} at vx={args.vx:+.2f} vy={args.vy:+.2f}.")
                 if not args.align
                 else f">>> This ramps over {args.ramp_s:.1f}s and then HOLDS, waiting for"
                 f" '{args.align_word}' before the policy engages."
@@ -655,7 +686,7 @@ def _main(cleanup) -> int:
             hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
             print("[ok] dry run complete -- the policy was never engaged")
             return 0
-    if args.heading is None:
+    if args.heading is None and tracking_runner is None:
         # Seed from where the robot actually points, not from world zero. Needs a state sample, so
         # it cannot happen in the CLI; done after the ramp because that is the pose the policy
         # inherits, and before the loop so step 0 already has the right target.
@@ -665,7 +696,9 @@ def _main(cleanup) -> int:
         commander.face(measured)
         print(f"[..] heading target seeded from the robot: {np.rad2deg(measured):+.1f} deg (world)")
 
-    if leapp_runner is not None:
+    if tracking_runner is not None:
+        runner = tracking_runner
+    elif leapp_runner is not None:
         runner = leapp_runner
     elif args.depth is None:
         runner = core.G1PolicyRunner(policy)
@@ -683,10 +716,12 @@ def _main(cleanup) -> int:
         f"  solref {env.model.geom_solref[1, 0]:.4f}  root_z {root_z:.3f} m"
     )
     print(
-        f"[..] {Path(args.policy or args.depth).name}  mode={args.sim}  order={args.policy_physics}"
+        f"[..] {Path(args.tracking or args.policy or args.depth).name}  mode={args.sim}"
+        f"  order={'tracking29' if tracking_runner is not None else args.policy_physics}"
         f"  mode_machine={mode_machine}\n"
         f"     {physics}  policy at {1 / core.CONTROL_DT:.0f} Hz"
-        f"  cmd=({args.vx:+.2f}, {args.vy:+.2f}) m/s, heading {np.rad2deg(commander.heading):+.0f} deg"
+        + (f"  reference={tracking_runner.duration:.2f}s, plays once" if tracking_runner is not None
+           else f"  cmd=({args.vx:+.2f}, {args.vy:+.2f}) m/s, heading {np.rad2deg(commander.heading):+.0f} deg")
     )
     help_text = tele.HELP_NO_STRAFE if args.no_strafe else tele.HELP
     if args.teleop:
@@ -722,8 +757,10 @@ def _main(cleanup) -> int:
             float(contract["depth_max_range_m"]), dtype=np.float32,
         )
     wall_start = time.monotonic()
+    motion_start = env.data.time if env is not None else wall_start
     control_pacer = PeriodicDeadline(core.CONTROL_DT)
     fell_at = None
+    steps_done = 0
     clamped_steps = 0
     k = -1
     if recorder is not None:
@@ -737,6 +774,10 @@ def _main(cleanup) -> int:
                 print("[warn] stdin is not a terminal; keyboard input only via the viewer window")
             for k in itertools.count() if n_steps is None else range(n_steps):
                 step_started_ns = time.monotonic_ns()
+                elapsed_s = (env.data.time if env is not None else time.monotonic()) - motion_start
+                if tracking_runner is not None and elapsed_s >= tracking_runner.duration - 1e-8:
+                    print("[ok] reference motion complete")
+                    break
                 if args.teleop:
                     for key in keys.poll():
                         if key == "?":
@@ -759,7 +800,8 @@ def _main(cleanup) -> int:
                 # see core.yaw_rate_from_heading. TeleopCommand therefore steers the heading
                 # *target* and rebuilds the yaw rate here from the measured orientation, so a
                 # teleoperated run stays on the same distribution a fixed --heading run is on.
-                command = commander.as_array(quat)
+                command = (tracking_runner.command_at(elapsed_s) if tracking_runner is not None
+                           else commander.as_array(quat))
                 if recorder is not None:
                     recorder.step_index = k
                     recorder.arrays("step", step_started_ns, step=k, tick=int(state.tick),
@@ -773,7 +815,14 @@ def _main(cleanup) -> int:
                     cmd_sock.sendto(np.asarray(command, dtype=np.float32).tobytes(),
                                     ("127.0.0.1", args.cmd_echo))
 
-                if args.depth is None:
+                if tracking_runner is not None:
+                    target, action = runner.step(q, dq, quat, gyro, elapsed_s=elapsed_s,
+                                                 action_limit=args.action_limit)
+                    if recorder is not None:
+                        recorder.arrays("tracking", step=k, frame=runner.frame_index,
+                                        reference_time=runner.frame_index * core.CONTROL_DT,
+                                        tilt_error=runner.tilt_error, joint_target=target, action=action)
+                elif args.depth is None:
                     target, _ = runner.step(q, dq, quat, gyro, command, action_limit=args.action_limit)
                 else:
                     if depth_frames is None:
@@ -802,7 +851,8 @@ def _main(cleanup) -> int:
                         echo_sock.sendto(dl.pack_frame(k, frame), ("127.0.0.1", args.depth_echo))
                     target, _ = runner.step(q, dq, quat, gyro, command, frame,
                                             action_limit=args.action_limit)
-                target[core.UNMAPPED_ROBOT_MOTORS] = 0.0
+                if tracking_runner is None:
+                    target[core.UNMAPPED_ROBOT_MOTORS] = 0.0
                 if args.real:
                     safe, n_clamped = hw.clamp_to_joint_limits(target)
                     clamped_steps += n_clamped > 0
@@ -830,11 +880,16 @@ def _main(cleanup) -> int:
                     break
 
                 gravity_z = float(core.quat_apply_inverse_wxyz(quat, np.array([0.0, 0.0, -1.0], np.float32))[2])
-                if gravity_z > args.fall_gravity_z:
-                    fell_at = k * core.CONTROL_DT
+                failed = (runner.tilt_error > args.tracking_max_tilt_error if tracking_runner is not None
+                          else gravity_z > args.fall_gravity_z)
+                if failed:
+                    fell_at = elapsed_s if tracking_runner is not None else k * core.CONTROL_DT
                     if recorder is not None:
-                        recorder.event("fall", step=k, gravity_z=gravity_z)
-                    print(f"[warn] fell at t={fell_at:.2f}s (gravity_z={gravity_z:+.3f})")
+                        recorder.event("fall", step=k, gravity_z=gravity_z,
+                                       tracking_tilt_error=runner.tilt_error if tracking_runner is not None else None)
+                    reason = (f"reference tilt error={runner.tilt_error:.3f} rad" if tracking_runner is not None
+                              else f"gravity_z={gravity_z:+.3f}")
+                    print(f"[warn] stopped at t={fell_at:.2f}s ({reason})")
                     break
 
                 if args.sim == "sync":
@@ -851,6 +906,7 @@ def _main(cleanup) -> int:
                 else:
                     link.send(target, kp, kd, mode_machine)
                     control_pacer.wait()
+                steps_done += 1
     except KeyboardInterrupt:
         if recorder is not None:
             recorder.event("interrupt")
@@ -901,7 +957,6 @@ def _main(cleanup) -> int:
             print(line)
             depth_frames.close()
 
-    steps_done = k + 1
     survived = fell_at if fell_at is not None else steps_done * core.CONTROL_DT
     real_time = time.monotonic() - wall_start
     print(f"[ok] survived {survived:.2f}s of {duration_txt}  (wall {real_time:.1f}s)")
@@ -915,7 +970,7 @@ def _main(cleanup) -> int:
             " targets outside the mechanical travel. Expected on the ankles -- check whether the"
             " joints actually reached their stops before deciding to clamp."
         )
-    return 0
+    return 1 if tracking_runner is not None and fell_at is not None else 0
 
 
 if __name__ == "__main__":

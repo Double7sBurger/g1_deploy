@@ -1,0 +1,23 @@
+{
+  "source_checkpoint": "/home/henry/workspace/isaac-spinning-up/logs/osmo/mimic_deploy_20261023/cartwheel/logs/rsl_rl/g1_motion_tracking/2026-10-21_05-37-17_cartwheel_s42/model_29999.pt",
+  "source_motion": "/home/henry/workspace/isaac-spinning-up/source/motion_tracking/data/motions/npz/g1_cartwheel.npz",
+  "training_iteration": 29999,
+  "export": {
+    "eager_jit_max_abs_error": 0.0,
+    "samples": 256,
+    "input_dim": 154,
+    "output_dim": 29,
+    "full_clip_success_rate": 1.0,
+    "phase_suffix_success_rate": 1.0,
+    "hardware_validated": false
+  },
+  "sha256": {
+    "policy.pt": "e5d46a3a30f84684fa2306dee6bc63a6fa83c53c4c23363f1190e6ee798c1f54",
+    "model_29999.pt": "bef66813d2ef66264e447224f708b4760fd22fdc252bebece9282b8f9fc56785",
+    "motion.json": "dc1ca53b8dd4eef58cc9370b1678f0934ab6bdf42ff074b88e567011926d2b56",
+    "contract.json": "62ff5f6562c460fa322f06b24bf4a1eabcf12ce8cd065ee2f18a3b2be9135666",
+    "evaluation.json": "908c907cbb9cbc4ca053415397837091dd61611da1d7b978669024cadf70324e",
+    "motion.npz": "c4af29d7a57f1a4be56b3e70dc307176fc78b642fa9445441cf9ace2a77a3e00",
+    "validation.json": "5536af7b8b4bf8571f4819fadb9a9e90e31a1d13dfdd11f19db52b7b8148ed9a"
+  }
+}

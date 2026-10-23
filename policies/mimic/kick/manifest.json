@@ -1,0 +1,23 @@
+{
+  "source_checkpoint": "/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_official_action_20261020/results/action-001/logs/rsl_rl/g1_motion_tracking/2026-10-20_04-46-32_action-001_s42/model_29999.pt",
+  "source_motion": "/home/henry/workspace/isaac-spinning-up/source/motion_tracking/data/motions/npz/g1_spinkick.npz",
+  "training_iteration": 29999,
+  "export": {
+    "eager_jit_max_abs_error": 0.0,
+    "samples": 256,
+    "input_dim": 154,
+    "output_dim": 29,
+    "full_clip_success_rate": 1.0,
+    "phase_suffix_success_rate": 1.0,
+    "hardware_validated": false
+  },
+  "sha256": {
+    "policy.pt": "43c84e2468763c176ec7d2dcba0bca10762447ab331cae0bb663610b568d205e",
+    "model_29999.pt": "201c57fc8f5bba999d71832effed9c09bf3815f3c7b4c23ac5ee9e01811c0f84",
+    "motion.json": "c0bfca4a0afabed05bb4c120b2849edeb85a2166920c8834bac4fa8fea143fcb",
+    "contract.json": "851f9d28d4d5af4572c9435947c130e5bd1ecae2e553be4668a853a9e647fef7",
+    "evaluation.json": "2761c2c459a955070e4411c248fa0d8b9bc455983ab4ebffd80525d52a917e2e",
+    "motion.npz": "0660cbed918f007b339115773f90b4189dbf1506e3c5aa62703507f24857a9ea",
+    "validation.json": "341674c377119fff034e3dc998df7212fceedc2226d077f80f9c88b529a0ef2c"
+  }
+}

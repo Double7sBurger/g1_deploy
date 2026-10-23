@@ -162,7 +162,7 @@ class DeploymentRecorder:
         atexit.unregister(self.close)
 
 
-def create_recorder(args, contract, core) -> DeploymentRecorder:
+def create_recorder(args, contract, core, *, tracking=None) -> DeploymentRecorder:
     """Save the policy identity and interpretation of each recorded array before control starts."""
     import importlib.metadata
     import shutil
@@ -171,7 +171,7 @@ def create_recorder(args, contract, core) -> DeploymentRecorder:
     from unitree_sdk2py.idl.unitree_hg.msg.dds_ import IMUState_, LowCmd_, LowState_, MotorCmd_, MotorState_
 
     leapp_path = getattr(args, "leapp", None)
-    source = Path(leapp_path or args.policy or args.depth).resolve()
+    source = Path(leapp_path or getattr(args, "tracking", None) or args.policy or args.depth).resolve()
     policy = source / "policy.pt" if source.is_dir() else source
     directory = Path(args.log_dir or "recordings") / (datetime.now().strftime("%Y%m%d_%H%M%S_%f") + "_" + source.stem)
     repo = Path(__file__).resolve().parents[1]
@@ -206,6 +206,13 @@ def create_recorder(args, contract, core) -> DeploymentRecorder:
                     note="DDS receipt/command-write times use host monotonic clock; robot tick is a separate clock. "
                          "No measured base position or linear velocity is available in LowState. "
                          "CDR blobs preserve all 35 motor slots; the deployment commands the first 29.")
+    if tracking is not None:
+        metadata.update(policy_joint_names=tracking.joint_names,
+                        policy_to_robot=tracking.policy_to_robot.tolist(),
+                        action_scale=tracking.action_scale.tolist(),
+                        default_joint_pos=tracking.default_joint_pos.tolist(),
+                        tracking=dict(motion_sha256=contract["motion_sha256"],
+                                      duration=tracking.duration, command="reference_joint_pos_and_vel"))
     if leapp_path:
         import yaml
 

@@ -1,5 +1,8 @@
 # What is in here, and which of it runs
 
+Motion-tracking checkpoints, reference clips and `--tracking` usage are listed separately in
+[`mimic/README.md`](mimic/README.md).
+
 Four students are deployable; the three `teacher_*` directories are not and say so in their own
 contracts (`deployable: false`). Every number below is measured on flat ground under a pinned
 0.8 m/s straight command, except `success_rate`, which is the training metric on rough terrain.

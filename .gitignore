@@ -5,6 +5,7 @@ build/
 dist/
 .venv/
 *.npz
+!policies/mimic/*/motion.npz
 *.mp4
 # *.pt
 *.onnx

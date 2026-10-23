@@ -12,6 +12,7 @@ GPU: the policy is a 208K-parameter MLP that runs in 0.016 ms on a single CPU th
 ```
 g1_deploy/
   core.py         the deployment contract: joint order, observation layout, PD gains, default pose
+  tracking.py     finite reference-motion playback with the mimic actor's 154-value observation
   controller.py   reads rt/lowstate, writes rt/lowcmd — the only part that talks to the robot
   recording.py    asynchronous DDS and policy recording, enabled by default on hardware
   analysis.py     offline timing, joint motion, heading and vibration diagnostics
@@ -154,6 +155,36 @@ and stops the turn.
 
 Note that `space` is not a way to make the robot stand: at `vx = 0` this policy falls in about 2 s,
 for the asset reason below.
+
+## Motion tracking
+
+The seven exports in [`policies/mimic`](policies/mimic/README.md) run through the same loop with
+`--tracking`. Each directory includes the original training checkpoint, executable `policy.pt`,
+reference motion and its own 29-joint deployment contract.
+
+```bash
+# macOS: play the walking clip once, with a viewer
+mjpython scripts/run_policy_loop.py --sim sync --viz \
+  --tracking policies/mimic/walk --domain_id 81 --interface lo0
+
+# Linux: the same local DDS rehearsal without a viewer
+python scripts/run_policy_loop.py --sim sync \
+  --tracking policies/mimic/walk --domain_id 81 --interface lo
+```
+
+Replace `walk` with `kick`, `run`, `cartwheel`, `speed-vault` or `cr7` to select another clip.
+`double-kong` is also retained, but its final training evaluation did not complete a full clip.
+These actors consume reference joint positions/velocities, torso orientation error, pelvis gyro,
+joint feedback and previous actions. They need neither base linear velocity nor anchor position.
+The package determines gains, action scaling and joint order; `--policy_physics` does not select
+a tracking layout. Velocity teleoperation does not apply to a fixed motion clip.
+
+Playback starts at frame zero after the existing ramp/alignment sequence, aligns the reference
+heading once, and ends at the clip boundary even with `--duration inf`. A shorter `--duration`
+stops earlier. Tracking compares torso tilt to the reference instead of treating an intentional
+inversion as a fall; `--tracking_max_tilt_error` defaults to 0.8 rad. Only the 29-DoF hardware
+variant (`mode_machine=5`) is accepted. The hardware path retains operator abort and damp-down.
+The included validation covers numerical parity and local simulation; hardware has not been tested.
 
 ## Vision policies
 

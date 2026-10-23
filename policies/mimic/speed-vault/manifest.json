@@ -1,0 +1,23 @@
+{
+  "source_checkpoint": "/home/henry/workspace/isaac-spinning-up/logs/osmo/mimic_deploy_20261023/speed-vault/logs/rsl_rl/g1_motion_tracking/2026-10-21_05-37-17_speed-vault_s42/model_29999.pt",
+  "source_motion": "/home/henry/workspace/isaac-spinning-up/source/motion_tracking/data/motions/npz/g1_speed_vault.npz",
+  "training_iteration": 29999,
+  "export": {
+    "eager_jit_max_abs_error": 0.0,
+    "samples": 256,
+    "input_dim": 154,
+    "output_dim": 29,
+    "full_clip_success_rate": 1.0,
+    "phase_suffix_success_rate": 1.0,
+    "hardware_validated": false
+  },
+  "sha256": {
+    "policy.pt": "78b5348d7a00428242a4e404c78b5931e45b745b8c6d5d82ec4a171995b91333",
+    "model_29999.pt": "923be18b37eff642281dbe568448cc7e96bd367a70c809412b42d5d629cb6d5f",
+    "motion.json": "73cbf1a245deb395035044e8c4d4afd96ff0f2309931a226dc2c58fd90cf94db",
+    "contract.json": "b473490a1c7a70d9013bbf0ab1cb0f66ed3deef6f6a219f557f7ac9ecf78c506",
+    "evaluation.json": "772640c875df81a78d57e2a43dd449f467b7fdabd2d4eb73b73850dfc4c107e6",
+    "motion.npz": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+    "validation.json": "64009677988cf5e018d23e70a5b883e1458a875b144eacc375e56ce6e4fc1a4f"
+  }
+}

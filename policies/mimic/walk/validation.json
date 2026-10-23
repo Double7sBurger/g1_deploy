@@ -1,0 +1,19 @@
+{
+  "protocol": "Exact pinned Newton training environment vs deployment; deterministic reference phases with joint perturbations",
+  "reference_frames": [
+    0,
+    100,
+    200,
+    300,
+    398
+  ],
+  "max_abs_error": {
+    "observation": 1.8649734556674957e-07,
+    "action": 1.087784767150879e-06,
+    "target": 3.7997961044311523e-07
+  },
+  "hardware_validated": false,
+  "training_engine": "NewtonMJWarpManager",
+  "policy_sha256": "73234871c0b7f1d8584fdf1eaa6797c53bad55699b102b55bf288b69e89aefa0",
+  "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3"
+}

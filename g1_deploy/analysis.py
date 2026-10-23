@@ -165,18 +165,27 @@ def analyze(directory):
     steps = list(records(directory, "step"))
     if steps:
         arrays["control_t"] = (np.asarray([s[0] for s in steps], dtype=np.int64) - origin) * 1e-9
-        arrays["command"] = np.stack([s[1]["command"] for s in steps])
-        arrays["heading_target"] = np.asarray([s[1]["heading"] for s in steps])
-        quat = np.stack([s[1]["quat"] for s in steps])
-        arrays["yaw"] = quaternion_rpy(quat)[:, 2]
-        arrays["heading_error"] = (arrays["heading_target"] - arrays["yaw"] + np.pi) % (2 * np.pi) - np.pi
-        summary["heading_error_deg"] = percentiles(np.abs(np.rad2deg(arrays["heading_error"])))
+        if metadata.get("tracking"):
+            arrays["reference_command"] = np.stack([s[1]["command"] for s in steps])
+        else:
+            arrays["command"] = np.stack([s[1]["command"] for s in steps])
+            arrays["heading_target"] = np.asarray([s[1]["heading"] for s in steps])
+            quat = np.stack([s[1]["quat"] for s in steps])
+            arrays["yaw"] = quaternion_rpy(quat)[:, 2]
+            arrays["heading_error"] = (arrays["heading_target"] - arrays["yaw"] + np.pi) % (2 * np.pi) - np.pi
+            summary["heading_error_deg"] = percentiles(np.abs(np.rad2deg(arrays["heading_error"])))
         summary["control_interval_ms"] = percentiles(np.diff(arrays["control_t"]) * 1000)
         # State age is evaluated at policy-input capture, not at the start of the loop.
         arrays["state_age_ms"] = np.asarray([(s[1]["captured_ns"] - s[1]["state_received_ns"]) * 1e-6 for s in steps])
         summary["state_age_ms"] = percentiles(arrays["state_age_ms"])
         arrays["control_interval_ms"] = np.r_[np.nan, np.diff(arrays["control_t"]) * 1000]
         arrays["control_step"] = np.asarray([value["step"] for _, value in steps])
+    tracking = list(records(directory, "tracking"))
+    if tracking:
+        arrays["tracking_t"] = (np.asarray([stamp for stamp, _ in tracking], dtype=np.int64) - origin) * 1e-9
+        arrays["reference_time"] = np.asarray([value["reference_time"] for _, value in tracking])
+        arrays["tracking_tilt_error"] = np.asarray([value["tilt_error"] for _, value in tracking])
+        summary["tracking_tilt_error_deg"] = percentiles(np.rad2deg(arrays["tracking_tilt_error"]))
     policy_samples = list(records(directory, "policy"))
     inference = [value["inference_ns"] * 1e-6 for _, value in policy_samples]
     summary["inference_ms"] = percentiles(inference)
@@ -228,8 +237,12 @@ def save_report(directory, output=None, *, plots=True):
     axes[1].legend(["roll", "pitch"])
     if "control_t" in data:
         t = data["control_t"]
-        axes[2].plot(t, np.rad2deg(data["heading_error"]))
-        axes[2].set_ylabel("Heading error [deg]")
+        if "tracking_tilt_error" in data:
+            axes[2].plot(data["tracking_t"], np.rad2deg(data["tracking_tilt_error"]))
+            axes[2].set_ylabel("Reference tilt error [deg]")
+        elif "heading_error" in data:
+            axes[2].plot(t, np.rad2deg(data["heading_error"]))
+            axes[2].set_ylabel("Heading error [deg]")
         axes[3].plot(t[1:], np.diff(t) * 1000, label="control period")
         axes[3].plot(t, data["state_age_ms"], label="state age")
         axes[3].axhline(metadata["control_dt"] * 1000, linestyle="--", color="black", label="nominal period")

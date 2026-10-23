@@ -708,7 +708,7 @@ def build_default_pose() -> np.ndarray:
     return pose
 
 
-def load_policy(path: str):
+def load_policy(path: str, *, obs_dim: int | None = None, action_dim: int | None = None):
     """Load a TorchScript policy and wrap it as a numpy callable.
 
     Sets PyTorch's process-wide intra-op thread count to one for predictable 50 Hz latency.
@@ -719,14 +719,16 @@ def load_policy(path: str):
     """
     import torch
 
+    obs_dim = OBS_DIM if obs_dim is None else obs_dim
+    action_dim = NUM_POLICY_JOINTS if action_dim is None else action_dim
     # Keep batch-1 inference within the control period instead of using all CPU cores.
     torch.set_num_threads(1)
     module = torch.jit.load(path)
     module.eval()
-    probe = module(torch.zeros(1, OBS_DIM))
-    if probe.shape[-1] != NUM_POLICY_JOINTS:
+    probe = module(torch.zeros(1, obs_dim))
+    if probe.shape != (1, action_dim):
         raise ValueError(
-            f"policy maps {OBS_DIM} observations to {probe.shape[-1]} actions, expected {NUM_POLICY_JOINTS}"
+            f"policy maps {obs_dim} observations to {tuple(probe.shape)}, expected (1, {action_dim})"
         )
 
     def run(obs: np.ndarray) -> np.ndarray:

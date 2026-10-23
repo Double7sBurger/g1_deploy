@@ -1,0 +1,23 @@
+{
+  "source_checkpoint": "/home/henry/workspace/isaac-spinning-up/logs/osmo/mimic_deploy_20261023/cr7-grounded/logs/rsl_rl/g1_motion_tracking/2026-10-21_06-44-13_cr7-grounded_s42/model_29999.pt",
+  "source_motion": "/home/henry/workspace/isaac-spinning-up/source/motion_tracking/data/motions/npz/g1_cr7_grounded.npz",
+  "training_iteration": 29999,
+  "export": {
+    "eager_jit_max_abs_error": 0.0,
+    "samples": 256,
+    "input_dim": 154,
+    "output_dim": 29,
+    "full_clip_success_rate": 1.0,
+    "phase_suffix_success_rate": 1.0,
+    "hardware_validated": false
+  },
+  "sha256": {
+    "policy.pt": "eeae81c62ab3bf21940d4fd57d97cc6d34597cd2f57b59a35796b35ebbfcd21b",
+    "model_29999.pt": "5ca159985587a5ba0052b612922d78b27c49defa60dd265b2df3adaf3093f9db",
+    "motion.json": "ec562ba2d3ce5e59710754c4aa4742703dc9c50f7f371c4d40962b8159721c44",
+    "contract.json": "a71218f2c3b5d4b9280c7a4fbeec3e11b0c4adf69996c832d8924afbd52cc8a5",
+    "evaluation.json": "1937f7943d16971fad754a016eb25d9663b9fa38f34ae6f86fed6fa141584d3a",
+    "motion.npz": "1e52aa209c1765e61f0590ddb77d9c6fe0f09cb372395665306034acd1d4fe9a",
+    "validation.json": "e67e0720dd5307c653512b2a4f0383da091e749cfd301a7fd43e9b41e6e9b863"
+  }
+}
