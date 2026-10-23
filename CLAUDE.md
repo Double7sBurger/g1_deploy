@@ -21,8 +21,8 @@ The Isaac Lab simulation environment and the G1 deployment environment are separ
 **Official LEAPP depth deployment worked on the physical G1 on 2026-10-14.** See `Leapp.md`
 for the exact commands and recorded evidence. `--leapp YAML` selects the official runtime;
 omitting it preserves TorchScript. Never infer compatibility of another policy from its `.pt`
-extension: the new `policies/Junnosuke` models need 937 inputs and 29 outputs, unlike this
-runner's 690/43 contract, and are awaiting their complete training configuration.
+extension -- a shape mismatch is the only thing that announces itself, and matching shapes do not
+establish that the observation layout, command semantics or gains are the same.
 
 **Generated terrain scenes carry relative paths.** `make_terrain.py` writes `meshdir` relative to
 the scene file and names the height field by bare filename, and `assets_for` scans the scene's own
@@ -41,6 +41,11 @@ macOS specifics: pass `--interface lo0` (`lo` is the Linux name and CycloneDDS r
 stay under ~230 — above that CycloneDDS fails to open its discovery socket.
 
 ## The robot
+
+Latest read-only check on 2026-10-14: the active Ethernet adapter is **en8**, and **en6 is absent**.
+en8 has a 1 Gb/s link but was still self-assigned `169.254.102.242`; intended robot-side Mac address
+remains `192.168.123.222`. Reconfigure/verify locally before using en8. Earlier en6 commands below
+describe the previous adapter, not the currently connected one.
 
 Wired on **`en6`**, static `192.168.123.222`. Locomotion computer `192.168.123.161` (all the robot's
 DDS participants are there), PC2 `192.168.123.164` (`unitree`/`123`). **DDS domain 0.**
