@@ -59,7 +59,7 @@ class BundleTests(unittest.TestCase):
         data = {"t": np.arange(2.0), "q": np.zeros((2, 29))}
         with tempfile.TemporaryDirectory() as root:
             run = Path(root) / "test_run"
-            with patch("g1_deploy.analysis.analyze", return_value=({}, {"samples": 2}, data)):
+            with patch("g1_deploy.analysis.analyze", return_value=({}, {"samples": 2, "policy_window_s": None}, data)):
                 output, _ = save_report(run, plots=False)
             self.assertTrue((output / "test_run.deploynose").is_file())
             self.assertEqual(list(output.glob("*.png")), [])

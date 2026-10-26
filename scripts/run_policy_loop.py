@@ -151,6 +151,11 @@ def _main(cleanup) -> int:
                              " on its own feet while the operator waits. The trained gains come back"
                              " the instant the policy engages. 300 holds every packaged clip in"
                              " simulation; the trained ankle of 28.5 collapses in 1.5s.")
+    parser.add_argument("--stand_policy", default=None, metavar="EXPORT_DIR",
+                        help="With --tracking: go starts this mimic actor at fixed reference frame 0;"
+                             " go2 blends into the motion actor. Replaces the passive alignment hold.")
+    parser.add_argument("--stand_transition_s", type=float, default=1.0,
+                        help="Seconds to blend the active standing and motion actors after go2.")
     parser.add_argument(
         "--depth",
         default=None,
@@ -409,6 +414,15 @@ def _main(cleanup) -> int:
         parser.error("--stand_kp and --hold_at_end only mean something with --tracking")
     if args.stand_kp is not None and not 0 < args.stand_kp < 1e4:
         parser.error("--stand_kp must be positive and finite")
+    if args.stand_policy:
+        if args.stand_kp is not None:
+            parser.error("--stand_policy and --stand_kp are alternative standing modes; choose one")
+        if not args.tracking or args.dry_run:
+            parser.error("--stand_policy requires --tracking and cannot be used with --dry_run")
+        if not np.isfinite(args.stand_transition_s) or args.stand_transition_s <= 0:
+            parser.error("--stand_transition_s must be positive and finite")
+        if not np.isfinite(args.align_timeout) or args.align_timeout <= 0 or not args.align_word.strip():
+            parser.error("Active standing requires a finite positive --align_timeout and a confirmation word")
     if args.leapp and args.depth is None:
         parser.error("--leapp requires --depth with the matching export contract")
     if args.leapp and args.action_limit is not None:
@@ -418,12 +432,18 @@ def _main(cleanup) -> int:
     contract = depth_frames = None
     leapp_runner = None
     tracking_runner = None
+    standing_runner = standing_sequence = None
     if args.tracking:
         from g1_deploy.tracking import G1TrackingPolicyRunner
 
         tracking_runner = G1TrackingPolicyRunner(args.tracking)
         contract = tracking_runner.contract
         policy = tracking_runner.policy
+        if args.stand_policy:
+            from g1_deploy.tracking import StandingTrackingRunner
+
+            standing_runner = G1TrackingPolicyRunner(args.stand_policy)
+            standing_sequence = StandingTrackingRunner(standing_runner, tracking_runner, args.stand_transition_s)
     elif args.depth is None:
         # A directory is an export: policy.pt beside the contract it was trained under. The action
         # scale is the part that matters here -- the ms line replaced the blanket 0.5 with a
@@ -494,6 +514,8 @@ def _main(cleanup) -> int:
     elif tracking_runner is not None:
         default_pose = tracking_runner.default_pose
         kp, kd = tracking_runner.kp, tracking_runner.kd
+        if standing_runner is not None:
+            default_pose = standing_runner.default_pose
 
     # Standing is not the same problem as holding a pose, and the trained gains only ever had to do
     # the second one -- the policy balances, the PD does not. Stiffening the legs for the ramp and
@@ -597,12 +619,14 @@ def _main(cleanup) -> int:
     if not args.no_log:
         from g1_deploy.recording import create_recorder
 
-        recorder = create_recorder(args, contract, core, tracking=tracking_runner)
+        recorder = create_recorder(args, contract, core, tracking=tracking_runner, standing=standing_runner)
         cleanup.callback(recorder.close)
         if leapp_runner is None:
             policy = recorder.wrap_policy(policy)
             if tracking_runner is not None:
                 tracking_runner.policy = policy
+            if standing_runner is not None:
+                standing_runner.policy = recorder.wrap_policy(standing_runner.policy, kind="standing_policy")
         else:
             leapp_runner.recorder = recorder
         recorder.event("setup")
@@ -652,7 +676,14 @@ def _main(cleanup) -> int:
             env.close()
         raise ValueError("These tracking policies require mode_machine 5 (29 DoF, including all three waist joints)")
 
-    if args.real:
+    if standing_sequence is not None:
+        hw.confirm(
+            "Start active standing control with fresh IMU and joint feedback.\n"
+            f">>> Type '{args.align_word}' later to blend into the motion over {args.stand_transition_s:g}s."
+        )
+        hw.check_upright(link)
+
+    if args.real and standing_sequence is None:
         # The one and only operator gate, and it comes before anything moves. There must be no
         # blocking prompt between the ramp and engaging the policy: nothing sends rt/lowcmd while
         # input() waits, so on hardware the motor watchdog times out and drops the robot, and in
@@ -743,6 +774,8 @@ def _main(cleanup) -> int:
         runner = G1DepthPolicyRunner(policy, contract)
     if leapp_runner is None:
         runner.reset()
+    if standing_sequence is not None:
+        standing_sequence.reset()
 
     physics = (
         "external simulator or robot"
@@ -802,7 +835,11 @@ def _main(cleanup) -> int:
     clamped_steps = 0
     k = -1
     if recorder is not None:
-        recorder.event("policy_start", mode_machine=mode_machine)
+        recorder.event("standing_start" if standing_sequence is not None else "policy_start", mode_machine=mode_machine)
+    confirmation = hw.ConfirmationReader(args.align_word) if standing_sequence is not None else None
+    if confirmation is not None:
+        print(f"[standing] policy ACTIVE at 50 Hz; type '{args.align_word}' and Enter to start the motion.")
+    last_phase = "standing"
     # Raw mode only for the duration of the loop, so the operator prompt above still reads a line and
     # the terminal is restored on every exit path -- including the fall and the Ctrl-C.
     keys = tele.RawTerminal() if args.teleop else contextlib.nullcontext()
@@ -810,9 +847,24 @@ def _main(cleanup) -> int:
         with keys:
             if args.teleop and not keys.enabled:
                 print("[warn] stdin is not a terminal; keyboard input only via the viewer window")
-            for k in itertools.count() if n_steps is None else range(n_steps):
+            for k in itertools.count() if n_steps is None or standing_sequence is not None else range(n_steps):
                 step_started_ns = time.monotonic_ns()
-                elapsed_s = (env.data.time if env is not None else time.monotonic()) - motion_start
+                now = env.data.time if env is not None else time.monotonic()
+                elapsed_s = now - motion_start
+                if standing_sequence is not None:
+                    if standing_sequence.transition_at is None:
+                        if time.monotonic() - wall_start > args.align_timeout:
+                            raise TimeoutError(f"{args.align_word!r} not received within {args.align_timeout:g}s")
+                        if k > 0 and confirmation.poll():
+                            standing_sequence.start_motion(now)
+                            print(f"[transition] confirmed; blending policies over {args.stand_transition_s:g}s")
+                            if recorder is not None:
+                                recorder.event("motion_confirmed", step=k, transition_s=args.stand_transition_s)
+                    elapsed_s = standing_sequence.elapsed_s(now)
+                    if (standing_sequence.motion_start is not None and n_steps is not None
+                            and elapsed_s >= n_steps * core.CONTROL_DT - 1e-8):
+                        print("[ok] requested motion playback complete")
+                        break
                 if (tracking_runner is not None and not args.hold_at_end
                         and elapsed_s >= tracking_runner.duration - 1e-8):
                     print("[ok] reference motion complete")
@@ -836,6 +888,9 @@ def _main(cleanup) -> int:
                 if args.sim == "sync":
                     link.wait_for_tick(int(round(env.data.time * 1e3)))
                 state, received_ns = link.snapshot
+                if (standing_sequence is not None and args.sim == "none"
+                        and time.monotonic_ns() - received_ns > 200_000_000):
+                    raise TimeoutError("rt/lowstate is over 200 ms old during standing/motion control")
 
                 quat = np.asarray(state.imu_state.quaternion[:4], dtype=np.float32)
                 gyro = np.asarray(state.imu_state.gyroscope[:3], dtype=np.float32)
@@ -844,7 +899,8 @@ def _main(cleanup) -> int:
                 # see core.yaw_rate_from_heading. TeleopCommand therefore steers the heading
                 # *target* and rebuilds the yaw rate here from the measured orientation, so a
                 # teleoperated run stays on the same distribution a fixed --heading run is on.
-                command = (tracking_runner.command_at(elapsed_s) if tracking_runner is not None
+                command = (standing_sequence.command_at(now) if standing_sequence is not None
+                           else tracking_runner.command_at(elapsed_s) if tracking_runner is not None
                            else commander.as_array(quat))
                 if recorder is not None:
                     recorder.step_index = k
@@ -859,7 +915,25 @@ def _main(cleanup) -> int:
                     cmd_sock.sendto(np.asarray(command, dtype=np.float32).tobytes(),
                                     ("127.0.0.1", args.cmd_echo))
 
-                if tracking_runner is not None:
+                if standing_sequence is not None:
+                    target, action = standing_sequence.step(q, dq, quat, gyro, now=now,
+                                                           action_limit=args.action_limit)
+                    if recorder is not None:
+                        recorder.arrays("standing_tracking", step=k, phase=standing_sequence.phase,
+                                        reference_time=elapsed_s, tilt_error=standing_sequence.tilt_error,
+                                        joint_target=target)
+                        if standing_sequence.phase == "motion":
+                            recorder.arrays("tracking", step=k, frame=runner.frame_index,
+                                            reference_time=runner.frame_index * core.CONTROL_DT,
+                                            tilt_error=runner.tilt_error, joint_target=target, action=action)
+                    if standing_sequence.phase != last_phase:
+                        last_phase = standing_sequence.phase
+                        if last_phase == "motion":
+                            print("[motion] reference clock started at frame 0")
+                            if recorder is not None:
+                                recorder.event("policy_start", timestamp_ns=step_started_ns,
+                                               step=k, mode_machine=mode_machine)
+                elif tracking_runner is not None:
                     target, action = runner.step(q, dq, quat, gyro, elapsed_s=elapsed_s,
                                                  action_limit=args.action_limit)
                     if recorder is not None:
@@ -902,6 +976,8 @@ def _main(cleanup) -> int:
                     clamped_steps += n_clamped > 0
                     if args.clamp_targets:
                         target = safe
+                        if standing_sequence is not None:
+                            standing_sequence.set_previous_target(target)
 
                 if args.real:
                     # The G1 has no hardware e-stop; this is it. Checked before the fall test so a
@@ -924,14 +1000,16 @@ def _main(cleanup) -> int:
                     break
 
                 gravity_z = float(core.quat_apply_inverse_wxyz(quat, np.array([0.0, 0.0, -1.0], np.float32))[2])
-                failed = (runner.tilt_error > args.tracking_max_tilt_error if tracking_runner is not None
+                tilt_error = standing_sequence.tilt_error if standing_sequence is not None else (
+                    runner.tilt_error if tracking_runner is not None else None)
+                failed = (tilt_error > args.tracking_max_tilt_error if tracking_runner is not None
                           else gravity_z > args.fall_gravity_z)
                 if failed:
                     fell_at = elapsed_s if tracking_runner is not None else k * core.CONTROL_DT
                     if recorder is not None:
                         recorder.event("fall", step=k, gravity_z=gravity_z,
-                                       tracking_tilt_error=runner.tilt_error if tracking_runner is not None else None)
-                    reason = (f"reference tilt error={runner.tilt_error:.3f} rad" if tracking_runner is not None
+                                       tracking_tilt_error=tilt_error)
+                    reason = (f"reference tilt error={tilt_error:.3f} rad" if tracking_runner is not None
                               else f"gravity_z={gravity_z:+.3f}")
                     print(f"[warn] stopped at t={fell_at:.2f}s ({reason})")
                     break
@@ -947,10 +1025,13 @@ def _main(cleanup) -> int:
                             raise TimeoutError("simulator did not receive rt/lowcmd within 1s")
                         time.sleep(0.0002)
                     env.step_control()
+                    if standing_sequence is not None:
+                        control_pacer.wait()
                 else:
                     link.send(target, kp, kd, mode_machine)
                     control_pacer.wait()
-                steps_done += 1
+                if standing_sequence is None or standing_sequence.phase == "motion":
+                    steps_done += 1
     except KeyboardInterrupt:
         if recorder is not None:
             recorder.event("interrupt")

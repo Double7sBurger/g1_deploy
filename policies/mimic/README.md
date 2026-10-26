@@ -52,20 +52,26 @@ mjpython scripts/run_policy_loop.py --sim sync --viz \
 ```
 
 Use `--xml /path/to/scene_29dof.xml` if the MuJoCo asset is elsewhere. Each invocation starts a fresh
-reference at frame zero and plays once; `--duration inf` still stops at the end. Close the viewer
+reference at frame zero and plays once; `--duration inf` still stops at the end unless
+`--hold_at_end` is set. Close the viewer
 to stop a macOS rehearsal early. Do not share this DDS domain with a second simulator.
 
 The hardware entry point is the existing `--real` loop, for a compatible 29-DoF robot:
 
 ```bash
-python scripts/run_policy_loop.py --real --align \
-  --tracking policies/mimic/walk --interface <robot-network-interface> --domain_id 0
+python scripts/run_policy_loop.py --real \
+  --tracking policies/mimic/walk --stand_policy policies/mimic/kick \
+  --interface <robot-network-interface> --domain_id 0
 ```
 
 This interface has not been exercised on hardware. The loop requires `mode_machine=5`; it refuses
-the locked-waist 27-DoF variant. It ramps to the clip's first joint pose and waits for the existing
-alignment/start signal. On completion or abort, it uses the existing damp-down sequence; it does
-not switch to a locomotion policy. `--imu_tilt`, `--action_limit` and `--clamp_targets` retain their
+the locked-waist 27-DoF variant. With `--stand_policy`, `go` engages a live kick actor at fixed
+reference frame zero; `go2` blends into the selected motion actor over one second before starting
+the clip. The standing posture has bent knees, and both actors use the same nominal Kp/Kd.
+This mode replaces the passive ramp/alignment hold. On completion or abort, it uses the existing
+damp-down sequence; it does not switch to a locomotion policy. With `--hold_at_end`, the motion actor keeps tracking its final
+frame until the duration limit or an operator/guard stop. Use `--stand_kp` only with the passive
+pose-hold mode, without `--stand_policy`. `--imu_tilt`, `--action_limit` and `--clamp_targets` retain their
 existing meanings, but adding action/target clipping changes the trained controller's outputs.
 
 ## Observation and playback contract

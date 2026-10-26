@@ -180,11 +180,37 @@ The package determines gains, action scaling and joint order; `--policy_physics`
 a tracking layout. Velocity teleoperation does not apply to a fixed motion clip.
 
 Playback starts at frame zero after the existing ramp/alignment sequence, aligns the reference
-heading once, and ends at the clip boundary even with `--duration inf`. A shorter `--duration`
-stops earlier. Tracking compares torso tilt to the reference instead of treating an intentional
+heading once, and by default ends at the clip boundary even with `--duration inf`.
+`--hold_at_end` keeps tracking the final frame; a shorter `--duration` stops earlier. Tracking compares torso tilt to the reference instead of treating an intentional
 inversion as a fall; `--tracking_max_tilt_error` defaults to 0.8 rad. Only the 29-DoF hardware
 variant (`mode_machine=5`) is accepted. The hardware path retains operator abort and damp-down.
 The included validation covers numerical parity and local simulation; hardware has not been tested.
+
+For active standing while waiting, add a separate `--stand_policy` bundle:
+
+```bash
+python scripts/run_policy_loop.py --sim sync \
+  --tracking policies/mimic/walk --stand_policy policies/mimic/kick \
+  --domain_id 81 --interface lo
+```
+
+Type `go` to engage the standing actor, which keeps running at 50 Hz with its reference fixed at
+frame zero. Type `go2` to blend both actors' outputs over one second, then start the motion from
+frame zero. Waiting and blending do not consume the clip. This reuses the existing kick actor;
+it is not a separately trained straight-leg standing policy. Its stable posture has bent knees.
+Both bundles must have matching motor Kp/Kd, which stay unchanged throughout. The initial takeover
+blends from the measured joint targets over 0.3 seconds while the standing actor runs.
+
+The same option works with `--real` and replaces the passive ramp/alignment hold. `--align_word`
+and `--align_timeout` select the second confirmation word and waiting timeout (default `go2`,
+300 s); `--stand_transition_s` sets the blend duration (default 1 s). An input disconnect, timeout,
+stale state or operator abort exits through the hardware damp-down path. Clip completion also
+damps down unless `--hold_at_end` is set; that option keeps the motion actor tracking its final
+frame until stopped, without switching back to the standing actor. `--duration` limits motion
+playback and final-frame holding, excluding the initial standing wait and transition.
+`--stand_policy` and `--stand_kp` select alternative standing modes and cannot be combined.
+Recordings distinguish standing, transition and motion, and store the two actors' inference
+streams separately.
 
 ## Vision policies
 

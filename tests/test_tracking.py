@@ -14,7 +14,7 @@ import torch
 
 from g1_deploy import bootstrap, core
 from g1_deploy.hardware import MOTOR_NAMES
-from g1_deploy.tracking import G1TrackingPolicyRunner
+from g1_deploy.tracking import G1TrackingPolicyRunner, StandingTrackingRunner
 
 
 class TrackingTests(unittest.TestCase):
@@ -138,13 +138,191 @@ class TrackingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'checksum'):
             G1TrackingPolicyRunner(self.directory)
 
-    def test_clip_ends_without_wrapping_or_resetting(self):
+    def test_elapsed_clock_holds_last_frame_without_wrapping_or_resetting(self):
         runner = G1TrackingPolicyRunner(self.directory)
         self.assertAlmostEqual(runner.duration, .06)
         for t in [0, .02, .04]:
             runner.step(*self.sensors(), elapsed_s=t)
+        for t in [.06, 60.0]:
+            runner.step(*self.sensors(), elapsed_s=t)
+            self.assertEqual(runner.frame_index, runner.num_steps - 1)
+            np.testing.assert_array_equal(runner.command_at(t)[:29], self.positions[2])
         with self.assertRaisesRegex(ValueError, 'ended'):
-            runner.step(*self.sensors(), elapsed_s=.06)
+            runner.step(*self.sensors())
+
+    def test_standing_wait_does_not_consume_motion_and_handover_feeds_back_blended_target(self):
+        standing = G1TrackingPolicyRunner(self.directory)
+        motion = G1TrackingPolicyRunner(self.directory)
+        motion.policy = Mock(return_value=np.full((1, 29), -.5, np.float32))
+        sequence = StandingTrackingRunner(standing, motion, transition_s=1)
+        sensors = self.sensors()
+        initial, _ = sequence.step(*sensors, now=0)
+        np.testing.assert_array_equal(initial, sensors[0])
+        held, _ = sequence.step(*sensors, now=30)
+        self.assertEqual(standing.frame_index, 0)
+        self.assertEqual(motion._next_frame, 0)
+        motion.policy.assert_not_called()
+        sequence.start_motion(30)
+        target, _ = sequence.step(*sensors, now=30)
+        np.testing.assert_allclose(target, held, atol=1e-7)
+        # First motion inference sees the target actually sent by the standing controller.
+        np.testing.assert_allclose(motion.policy.call_args.args[0][0, 125:],
+                                   (held - motion.default_joint_pos) / motion.action_scale)
+        target, _ = sequence.step(*sensors, now=30.5)
+        expected = .5*held + .5*(motion.default_joint_pos - .5*motion.action_scale)
+        np.testing.assert_allclose(target, expected, atol=1e-7)
+        np.testing.assert_allclose(motion._last_action, (target-motion.default_joint_pos)/motion.action_scale)
+        self.assertEqual(motion.frame_index, 0)
+        applied = np.clip(target, -.05, .05)
+        sequence.set_previous_target(applied)
+        np.testing.assert_allclose(motion._last_action, (applied-motion.default_joint_pos)/motion.action_scale)
+        np.testing.assert_allclose(standing._last_action, (applied-standing.default_joint_pos)/standing.action_scale)
+        sequence.step(*sensors, now=np.nextafter(31., 0.))
+        self.assertEqual(sequence.phase, 'motion')
+        self.assertEqual(motion.frame_index, 0)
+        sequence.step(*sensors, now=31.02)
+        self.assertEqual(motion.frame_index, 1)
+        # A repeated confirmation must never restart the motion clock.
+        sequence.start_motion(31.02)
+        self.assertEqual(sequence.motion_start, 31)
+
+    def test_standing_rejects_gain_change_and_confirmation_before_engagement(self):
+        standing = G1TrackingPolicyRunner(self.directory)
+        motion = G1TrackingPolicyRunner(self.directory)
+        sequence = StandingTrackingRunner(standing, motion)
+        with self.assertRaisesRegex(RuntimeError, 'engaged'):
+            sequence.start_motion(0)
+        motion.kp *= 2
+        with self.assertRaisesRegex(ValueError, 'Kp/Kd'):
+            StandingTrackingRunner(standing, motion)
+
+    def test_confirmation_reader_waits_for_complete_exact_line_and_detects_eof(self):
+        import os
+        from g1_deploy.hardware import ConfirmationReader, OperatorAbort
+
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(read_fd, 'rb', buffering=0) as stream:
+            reader = ConfirmationReader(stream=stream)
+            self.assertFalse(reader.poll())
+            os.write(write_fd, b'wrong\ngo')
+            self.assertFalse(reader.poll())
+            os.write(write_fd, b'2\n')
+            self.assertTrue(reader.poll())
+            self.assertFalse(reader.poll())
+            os.close(write_fd)
+            self.assertFalse(reader.poll())
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(read_fd, 'rb', buffering=0) as stream:
+            reader = ConfirmationReader(stream=stream)
+            os.close(write_fd)
+            with self.assertRaisesRegex(OperatorAbort, 'closed'):
+                reader.poll()
+
+    def standing_loop(self, *, abort=False, timeout=300, extra=(), stop_after=None, recorder=None):
+        from g1_deploy import hardware
+        with patch.object(bootstrap, 'ensure_cyclonedds'):
+            from scripts import run_policy_loop
+        self.quats[:] = [1, 0, 0, 0]
+        self.save_bundle()
+        clock = [0.0]
+        state = SimpleNamespace(mode_machine=5, tick=0,
+                                imu_state=SimpleNamespace(quaternion=[1, 0, 0, 0], gyroscope=[0, 0, 0]),
+                                motor_state=[SimpleNamespace(q=0., dq=0.) for _ in range(29)])
+        link = Mock()
+        link.wait_for_state.return_value = state
+        link.snapshot = state, 0
+        def sent(*_):
+            if stop_after is not None and clock[0] >= stop_after:
+                raise KeyboardInterrupt
+            clock[0] += .02
+            link.snapshot = state, int(clock[0]*1e9)
+        link.send.side_effect = sent
+        reader = Mock()
+        reader.poll.side_effect = hardware.OperatorAbort('closed') if abort else [False, True]
+        argv = ['loop', '--real', '--skip_release_mode', '--tracking', str(self.directory),
+                '--stand_policy', str(self.directory), '--duration', 'inf', '--no_log',
+                '--align_timeout', str(timeout), *extra]
+        if recorder is not None:
+            argv.remove('--no_log')
+            recorder.wrap_policy.side_effect = lambda policy, **_: policy
+        with (patch.object(sys, 'argv', argv), patch.object(run_policy_loop, 'ChannelFactoryInitialize'),
+              patch.object(run_policy_loop, 'G1ControlLink', return_value=link),
+              patch('g1_deploy.recording.create_recorder', return_value=recorder),
+              patch('g1_deploy.analysis.save_report') as export,
+              patch.object(run_policy_loop.time, 'monotonic', side_effect=lambda: clock[0]),
+              patch.object(run_policy_loop.time, 'monotonic_ns', side_effect=lambda: int(clock[0]*1e9)),
+              patch.object(run_policy_loop.PeriodicDeadline, 'wait'),
+              patch.object(hardware, 'confirm') as confirm, patch.object(hardware, 'check_upright'),
+              patch.object(hardware, 'check_abort'), patch.object(hardware, 'ConfirmationReader', return_value=reader),
+              patch.object(hardware, 'ramp_to_pose') as ramp, patch.object(hardware, 'hold_until_confirmed') as hold,
+              patch.object(hardware, 'damp_down') as damp, contextlib.redirect_stdout(io.StringIO())):
+            try:
+                result = run_policy_loop.main()
+            finally:
+                confirm.assert_called_once()
+                ramp.assert_not_called()
+                hold.assert_not_called()
+                damp.assert_called_once()
+            if recorder is not None:
+                export.assert_called_once_with(recorder.directory, None, plots=False)
+        return result, link, clock[0]
+
+    def test_go_go2_loop_keeps_controlling_and_starts_full_clip_after_wait_and_blend(self):
+        result, link, elapsed = self.standing_loop()
+        self.assertEqual(result, 0)
+        self.assertAlmostEqual(elapsed, 1.36)
+        self.assertEqual(link.send.call_count, 68)
+        np.testing.assert_array_equal(link.send.call_args_list[0].args[0], np.zeros(29))
+        for call in link.send.call_args_list:
+            np.testing.assert_array_equal(call.args[1], np.arange(1, 30))
+
+    def test_standing_hold_at_end_honors_motion_duration_and_unbounded_abort(self):
+        for extra, stop_after in [(['--hold_at_end', '--duration', '.2'], None),
+                                  (['--hold_at_end'], 1.5)]:
+            with self.subTest(extra=extra):
+                result, link, elapsed = self.standing_loop(extra=extra, stop_after=stop_after)
+                self.assertEqual(result, 0)
+                self.assertAlmostEqual(elapsed, 1.5)
+                self.assertGreater(link.send.call_count, 68)
+                for call in link.send.call_args_list:
+                    np.testing.assert_array_equal(call.args[1], np.arange(1, 30))
+                    np.testing.assert_array_equal(call.args[2], np.ones(29))
+
+    def test_standing_recording_starts_policy_window_at_first_motion_step(self):
+        recorder = Mock()
+        recorder.directory = self.directory / 'recorded'
+        result, _, _ = self.standing_loop(recorder=recorder)
+        self.assertEqual(result, 0)
+        events = [c for c in recorder.event.call_args_list if c.args[0] == 'policy_start']
+        self.assertEqual(len(events), 1)
+        first = next(c for c in recorder.arrays.call_args_list if c.args[0] == 'tracking')
+        self.assertEqual(first.kwargs['frame'], 0)
+        self.assertEqual(events[0].kwargs['step'], first.kwargs['step'])
+        control = next(c for c in recorder.arrays.call_args_list
+                       if c.args[0] == 'step' and c.kwargs['step'] == first.kwargs['step'])
+        self.assertEqual(events[0].kwargs['timestamp_ns'], control.args[1])
+        self.assertEqual(recorder.wrap_policy.call_count, 2)
+        self.assertEqual(recorder.wrap_policy.call_args_list[1].kwargs['kind'], 'standing_policy')
+
+    def test_active_and_passive_standing_options_are_mutually_exclusive(self):
+        with patch.object(bootstrap, 'ensure_cyclonedds'):
+            from scripts import run_policy_loop
+        argv = ['loop', '--tracking', str(self.directory), '--stand_policy', str(self.directory),
+                '--stand_kp', '300', '--no_log']
+        with (patch.object(sys, 'argv', argv), contextlib.redirect_stderr(io.StringIO()) as error,
+              patch.object(run_policy_loop, 'ChannelFactoryInitialize') as initialize):
+            with self.assertRaises(SystemExit) as exit:
+                run_policy_loop.main()
+            self.assertEqual(exit.exception.code, 2)
+            self.assertIn('alternative standing modes', error.getvalue())
+            initialize.assert_not_called()
+
+    def test_standing_input_abort_and_timeout_damp_without_starting_motion(self):
+        result, link, elapsed = self.standing_loop(abort=True)
+        self.assertEqual(result, 0)
+        self.assertEqual(link.send.call_count, 1)
+        with self.assertRaisesRegex(TimeoutError, 'not received'):
+            self.standing_loop(timeout=.01)
 
     def loop(self, mode=5, extra=(), quaternion=(1, 0, 0, 0)):
         with patch.object(bootstrap, 'ensure_cyclonedds'):
@@ -169,6 +347,26 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(link.send.call_count, 3)
         for call in link.send.call_args_list:
             np.testing.assert_allclose(call.args[0], np.arange(29)/100 + .5*self.action, atol=1e-7)
+            np.testing.assert_array_equal(call.args[1], np.arange(1, 30))
+            np.testing.assert_array_equal(call.args[2], np.ones(29))
+
+    def test_passive_stand_kp_returns_to_trained_gains_on_policy_takeover(self):
+        from g1_deploy import hardware
+
+        with (patch.object(hardware, 'confirm'), patch.object(hardware, 'check_upright'),
+              patch.object(hardware, 'check_abort'), patch.object(hardware, 'damp_down'),
+              patch.object(hardware, 'ramp_to_pose') as ramp,
+              patch.object(hardware, 'hold_until_confirmed') as hold,
+              patch.object(hardware, 'report_tracking')):
+            result, link = self.loop(extra=['--real', '--skip_release_mode', '--align', '--stand_kp', '300'])
+        self.assertEqual(result, 0)
+        legs = [i for i, name in enumerate(MOTOR_NAMES)
+                if any(group in name for group in ('hip', 'knee', 'ankle', 'waist'))]
+        for call in (ramp.call_args, hold.call_args):
+            np.testing.assert_array_equal(call.args[2][legs], np.full(len(legs), 300))
+            np.testing.assert_allclose(call.args[3][legs], np.sqrt(300 / np.arange(1, 30)[legs]))
+        self.assertEqual(link.send.call_count, 3)
+        for call in link.send.call_args_list:
             np.testing.assert_array_equal(call.args[1], np.arange(1, 30))
             np.testing.assert_array_equal(call.args[2], np.ones(29))
 

@@ -124,6 +124,13 @@ class G1TrackingPolicyRunner:
         result[self.policy_to_robot] = values
         return result
 
+    def set_previous_target(self, target):
+        """Feed back the applied target when another controller blends the output."""
+        target = np.asarray(target, dtype=np.float32)
+        if target.shape != (29,) or not np.isfinite(target).all():
+            raise ValueError("Invalid previous joint target")
+        self._last_action = (target[self.policy_to_robot] - self.default_joint_pos) / self.action_scale
+
     def reset(self):
         self.frame_index = 0
         self._next_frame = 0
@@ -193,4 +200,103 @@ class G1TrackingPolicyRunner:
         if not np.isfinite(target).all():
             raise ValueError("Invalid tracking joint target")
         self._next_frame = index + 1
+        return target, action
+
+
+class StandingTrackingRunner:
+    """Keep a stationary reference active, then blend into a separate motion actor.
+
+    Both actors keep receiving fresh sensors. The motion clock starts only after
+    confirmation and the transition; waiting never consumes any reference frames.
+    """
+
+    def __init__(self, standing, motion, transition_s=1.0, engage_s=0.3):
+        if standing is motion:
+            raise ValueError("Standing and motion need separate runner state")
+        if any(not np.allclose(getattr(standing, key), getattr(motion, key), rtol=1e-6, atol=1e-6)
+               for key in ("kp", "kd")):
+            raise ValueError("Standing and tracking policies must use the same motor Kp/Kd")
+        if not np.isfinite(transition_s) or transition_s <= 0 or not np.isfinite(engage_s) or engage_s <= 0:
+            raise ValueError("Standing transition and engagement durations must be positive and finite")
+        self.standing, self.motion = standing, motion
+        self.transition_s, self.engage_s = float(transition_s), float(engage_s)
+        self.reset()
+
+    def reset(self):
+        self.standing.reset()
+        self.motion.reset()
+        self.phase = "standing"
+        self.engaged_at = self.transition_at = self.motion_start = None
+        self.initial_target = self.last_target = None
+        self.tilt_error = 0.0
+        self._motion_seeded = False
+
+    @staticmethod
+    def _blend(fraction):
+        u = float(np.clip(fraction, 0, 1))
+        return u**3 * (10 + u * (-15 + 6*u))
+
+    def start_motion(self, now):
+        if not np.isfinite(now):
+            raise ValueError("Invalid standing clock")
+        if self.engaged_at is None:
+            raise RuntimeError("Standing must be engaged before go2")
+        if self.transition_at is not None:
+            return
+        self.transition_at = max(float(now), self.engaged_at + self.engage_s)
+        self.motion_start = self.transition_at + self.transition_s
+
+    def elapsed_s(self, now):
+        return 0.0 if self.motion_start is None else max(0.0, float(now) - self.motion_start)
+
+    def command_at(self, now):
+        if self.transition_at is None or now < self.transition_at:
+            return self.standing.command_at(0.0)
+        return self.motion.command_at(self.elapsed_s(now))
+
+    def set_previous_target(self, target):
+        """Record the applied target, including any caller-requested joint clamp."""
+        target = np.asarray(target, dtype=np.float32)
+        if target.shape != (29,) or not np.isfinite(target).all():
+            raise ValueError("Invalid previous joint target")
+        self.last_target = target.copy()
+        if self.phase != "motion":
+            self.standing.set_previous_target(target)
+        if self._motion_seeded:
+            self.motion.set_previous_target(target)
+
+    def step(self, joint_pos, joint_vel, quat_wxyz, gyro, *, now, action_limit=None):
+        if not np.isfinite(now):
+            raise ValueError("Invalid standing clock")
+        if self.engaged_at is None:
+            self.engaged_at = float(now)
+            self.initial_target = np.asarray(joint_pos, dtype=np.float32).copy()
+        sensors = joint_pos, joint_vel, quat_wxyz, gyro
+        if self.motion_start is not None and now >= self.motion_start - 1e-8:
+            self.phase = "motion"
+        elif self.transition_at is not None and now >= self.transition_at - 1e-8:
+            self.phase = "transition"
+        else:
+            self.phase = "standing"
+
+        if self.phase != "motion":
+            target, action = self.standing.step(*sensors, elapsed_s=0.0, action_limit=action_limit)
+            self.tilt_error = self.standing.tilt_error
+        if self.phase != "standing":
+            if not self._motion_seeded:
+                self.motion.reset()
+                self.motion.set_previous_target(self.last_target)
+                self._motion_seeded = True
+            moving, action = self.motion.step(*sensors, elapsed_s=self.elapsed_s(now), action_limit=action_limit)
+            if self.phase == "transition":
+                alpha = self._blend((now - self.transition_at) / self.transition_s)
+                target = (1-alpha) * target + alpha * moving
+                self.tilt_error = max(self.tilt_error, self.motion.tilt_error)
+            else:
+                target = moving
+                self.tilt_error = self.motion.tilt_error
+        if now < self.engaged_at + self.engage_s:
+            alpha = self._blend((now - self.engaged_at) / self.engage_s)
+            target = (1-alpha) * self.initial_target + alpha * target
+        self.set_previous_target(target)
         return target, action

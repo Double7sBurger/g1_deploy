@@ -26,6 +26,22 @@ class RecordingTests(unittest.TestCase):
             np.testing.assert_array_equal(saved["input_0"], np.ones(3))
             np.testing.assert_array_equal(saved["action_raw"], np.zeros(3))
 
+    def test_standing_stream_is_separate_and_policy_start_can_include_first_inference(self):
+        with tempfile.TemporaryDirectory() as root:
+            recorder = DeploymentRecorder(Path(root) / "run", {})
+            recorder.wrap_policy(lambda obs: obs + 1, kind="standing_policy")(np.zeros(3))
+            recorder.wrap_policy(lambda obs: obs + 2)(np.zeros(3))
+            # The transition is identified after inference; anchor the window to its control step.
+            recorder.event("policy_start", timestamp_ns=123, step=4)
+            recorder.close()
+            _, standing = next(records(recorder.directory, "standing_policy"))
+            _, motion = next(records(recorder.directory, "policy"))
+            np.testing.assert_array_equal(standing["action_raw"], np.ones(3))
+            np.testing.assert_array_equal(motion["action_raw"], np.full(3, 2))
+            stamp, event = next(records(recorder.directory, "event"))
+            self.assertEqual(stamp, 123)
+            self.assertEqual(event, {"name": "policy_start", "step": 4})
+
     def test_committed_samples_survive_process_exit_without_cleanup(self):
         with tempfile.TemporaryDirectory() as root:
             directory = Path(root) / "interrupted"

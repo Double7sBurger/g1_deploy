@@ -77,20 +77,20 @@ class DeploymentRecorder:
         """Retain the complete DDS message, including unrecognized/reserved fields."""
         self._put(kind, "cdr", message, timestamp_ns)
 
-    def event(self, name: str, **values):
-        self._put("event", "json", dict(name=name, **values))
+    def event(self, name: str, *, timestamp_ns: int | None = None, **values):
+        self._put("event", "json", dict(name=name, **values), timestamp_ns)
 
     def arrays(self, kind: str, timestamp_ns: int | None = None, **values):
         self._put(kind, "npz", {key: np.asarray(value).copy() for key, value in values.items()}, timestamp_ns)
 
-    def wrap_policy(self, policy):
+    def wrap_policy(self, policy, *, kind="policy"):
         """Capture the exact model inputs and output before any action clipping."""
         def run(*inputs):
             snapshots = {f"input_{i}": np.asarray(value).copy() for i, value in enumerate(inputs)}
             started = time.monotonic_ns()
             output = policy(*inputs)
             finished = time.monotonic_ns()
-            self._put("policy", "npz", dict(step=self.step_index, inference_ns=finished - started,
+            self._put(kind, "npz", dict(step=self.step_index, inference_ns=finished - started,
                                            action_raw=np.asarray(output).copy(), **snapshots), started)
             return output
         return run
@@ -162,7 +162,7 @@ class DeploymentRecorder:
         atexit.unregister(self.close)
 
 
-def create_recorder(args, contract, core, *, tracking=None) -> DeploymentRecorder:
+def create_recorder(args, contract, core, *, tracking=None, standing=None) -> DeploymentRecorder:
     """Save the policy identity and interpretation of each recorded array before control starts."""
     import importlib.metadata
     import shutil
@@ -213,6 +213,12 @@ def create_recorder(args, contract, core, *, tracking=None) -> DeploymentRecorde
                         default_joint_pos=tracking.default_joint_pos.tolist(),
                         tracking=dict(motion_sha256=contract["motion_sha256"],
                                       duration=tracking.duration, command="reference_joint_pos_and_vel"))
+    if standing is not None:
+        metadata["standing_policy"] = dict(
+            directory=str(standing.directory.resolve()), contract=standing.contract,
+            reference_time_s=0.0, transition_s=args.stand_transition_s,
+            policy_stream="standing_policy", engagement_s=0.3,
+        )
     if leapp_path:
         import yaml
 

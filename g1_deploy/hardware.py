@@ -336,6 +336,44 @@ def hold_pose(
     return reached
 
 
+class ConfirmationReader:
+    """Poll complete confirmation lines without blocking the control loop."""
+
+    def __init__(self, word="go2", stream=None):
+        import sys
+        import termios
+
+        self.stream = sys.stdin if stream is None else stream
+        self.fd = self.stream.fileno()
+        self.word = word
+        self.pending = b""
+        self.confirmed = False
+        if self.stream.isatty():
+            termios.tcflush(self.fd, termios.TCIFLUSH)
+
+    def poll(self):
+        import os
+        import select
+
+        if self.confirmed or not select.select([self.fd], [], [], 0)[0]:
+            return False
+        chunk = os.read(self.fd, 4096)
+        if not chunk:
+            raise OperatorAbort("confirmation input closed before go2")
+        self.pending += chunk
+        while b"\n" in self.pending:
+            line, self.pending = self.pending.split(b"\n", 1)
+            value = line.decode(errors="replace").strip()
+            if value == self.word:
+                self.confirmed = True
+                return True
+            if value:
+                print(f"[..] ignored {value!r}; type {self.word!r} to start the motion")
+        if len(self.pending) > 4096:
+            self.pending = b""
+        return False
+
+
 def hold_until_confirmed(
     link, target: np.ndarray, kp: np.ndarray, kd: np.ndarray, mode_machine: int, control_dt: float,
     word: str = "go2", timeout: float = 300.0, countdown: float = 3.0, stream=None
