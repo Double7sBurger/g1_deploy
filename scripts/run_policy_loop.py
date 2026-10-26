@@ -139,6 +139,18 @@ def _main(cleanup) -> int:
                              " Uses the bundle's 29-joint layout and gains, not --policy_physics.")
     parser.add_argument("--tracking_max_tilt_error", type=float, default=0.8,
                         help="Tracking stop threshold: torso tilt error against the reference [rad].")
+    parser.add_argument("--hold_at_end", action="store_true",
+                        help="When the clip ends, keep the policy running against its final frame"
+                             " instead of stopping. Every clip ends standing, so the robot keeps"
+                             " balancing; it does not necessarily stay put -- in simulation"
+                             " cartwheel wanders 10 m in two minutes. Ends on Ctrl-C, the remote"
+                             " abort, or the tilt guard.")
+    parser.add_argument("--stand_kp", type=float, default=None, metavar="KP",
+                        help="Ramp and hold the clip's first frame at this stiffness on the hip,"
+                             " knee, ankle and waist instead of the trained one, so the robot stands"
+                             " on its own feet while the operator waits. The trained gains come back"
+                             " the instant the policy engages. 300 holds every packaged clip in"
+                             " simulation; the trained ankle of 28.5 collapses in 1.5s.")
     parser.add_argument(
         "--depth",
         default=None,
@@ -201,8 +213,12 @@ def _main(cleanup) -> int:
         " run_sim_loop.py --record and plot the two with scripts/plot_velocity.py; the command lives"
         " here and the achieved velocity only exists in the simulator.")
     parser.add_argument("--log_dir", default=None, metavar="DIR",
-                        help="Full deployment recordings under DIR; default 'recordings' on --real.")
+                        help="Full deployment recordings under DIR; defaults to 'recordings'. Every"
+                             " run records, simulation included, so a rehearsal can be compared"
+                             " against hardware.")
     parser.add_argument("--no_log", action="store_true", help="Disable the full deployment recording.")
+    parser.add_argument("--no_bundle", action="store_true",
+                        help="Skip the .deploynose export at the end of the run.")
     parser.add_argument(
         "--max_range_fill", type=float, default=3.0,
         help="Depth to fill every pixel with under --blind offline [m]; the contract's"
@@ -389,6 +405,10 @@ def _main(cleanup) -> int:
             parser.error("--tracking follows its reference; velocity teleop, heading and cmd_echo do not apply")
         if not np.isfinite(args.tracking_max_tilt_error) or not 0 < args.tracking_max_tilt_error <= np.pi:
             parser.error("--tracking_max_tilt_error must be in (0, pi] radians")
+    elif args.stand_kp is not None or args.hold_at_end:
+        parser.error("--stand_kp and --hold_at_end only mean something with --tracking")
+    if args.stand_kp is not None and not 0 < args.stand_kp < 1e4:
+        parser.error("--stand_kp must be positive and finite")
     if args.leapp and args.depth is None:
         parser.error("--leapp requires --depth with the matching export contract")
     if args.leapp and args.action_limit is not None:
@@ -475,6 +495,20 @@ def _main(cleanup) -> int:
         default_pose = tracking_runner.default_pose
         kp, kd = tracking_runner.kp, tracking_runner.kd
 
+    # Standing is not the same problem as holding a pose, and the trained gains only ever had to do
+    # the second one -- the policy balances, the PD does not. Stiffening the legs for the ramp and
+    # the hold buys a robot that stands by itself; the trained gains are restored in the same step
+    # the policy takes over, because that is the PD it was trained against.
+    hold_kp, hold_kd = kp, kd
+    if args.stand_kp is not None:
+        legs = [i for i, name in enumerate(hw.MOTOR_NAMES)
+                if any(group in name for group in ("hip", "knee", "ankle", "waist"))]
+        hold_kp, hold_kd = kp.copy(), kd.copy()
+        hold_kd[legs] *= np.sqrt(args.stand_kp / hold_kp[legs])
+        hold_kp[legs] = args.stand_kp
+        print(f"[..] standing on kp {args.stand_kp:.0f} until the policy engages,"
+              f" then back to the trained {kp[legs].min():.1f}-{kp[legs].max():.1f}")
+
     if args.imu_tilt is not None:
         try:
             tilt_pitch, tilt_roll = (float(v) for v in args.imu_tilt.split(","))
@@ -494,8 +528,9 @@ def _main(cleanup) -> int:
     # A run without --duration is the normal way to teleop; n_steps None means "until Ctrl-C".
     n_steps = None if np.isinf(args.duration) else int(round(args.duration / core.CONTROL_DT))
     if tracking_runner is not None:
-        n_steps = tracking_runner.num_steps if n_steps is None else min(n_steps, tracking_runner.num_steps)
-        args.duration = n_steps * core.CONTROL_DT
+        if not args.hold_at_end:
+            n_steps = tracking_runner.num_steps if n_steps is None else min(n_steps, tracking_runner.num_steps)
+        args.duration = n_steps * core.CONTROL_DT if n_steps is not None else float("inf")
     duration_txt = "unbounded" if n_steps is None else f"{args.duration:g}s"
 
     bridge = env = None
@@ -559,7 +594,7 @@ def _main(cleanup) -> int:
         root_z = float("nan")
 
     recorder = None
-    if not args.no_log and (args.real or args.log_dir):
+    if not args.no_log:
         from g1_deploy.recording import create_recorder
 
         recorder = create_recorder(args, contract, core, tracking=tracking_runner)
@@ -640,22 +675,22 @@ def _main(cleanup) -> int:
         try:
             if recorder is not None:
                 recorder.event("ramp")
-            hw.ramp_to_pose(link, default_pose, kp, kd, mode_machine, core.CONTROL_DT, args.ramp_s)
+            hw.ramp_to_pose(link, default_pose, hold_kp, hold_kd, mode_machine, core.CONTROL_DT, args.ramp_s)
             hw.check_upright(link)
         except hw.OperatorAbort as exc:
             print(f"[..] {exc}")
-            hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+            hw.damp_down(link, hold_kd, mode_machine, core.CONTROL_DT)
             return 0
         except RuntimeError as exc:
             print(f"[FAIL] {exc}")
-            hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+            hw.damp_down(link, hold_kd, mode_machine, core.CONTROL_DT)
             return 1
         if args.align and not args.dry_run:
             try:
                 if recorder is not None:
                     recorder.event("align")
                 reached = hw.hold_until_confirmed(
-                    link, default_pose, kp, kd, mode_machine, core.CONTROL_DT,
+                    link, default_pose, hold_kp, hold_kd, mode_machine, core.CONTROL_DT,
                     word=args.align_word, timeout=args.align_timeout,
                     countdown=args.align_countdown,
                 )
@@ -663,11 +698,11 @@ def _main(cleanup) -> int:
                 hw.check_upright(link)
             except hw.OperatorAbort as exc:
                 print(f"[..] {exc}")
-                hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+                hw.damp_down(link, hold_kd, mode_machine, core.CONTROL_DT)
                 return 0
             except (TimeoutError, RuntimeError) as exc:
                 print(f"[FAIL] {exc}")
-                hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+                hw.damp_down(link, hold_kd, mode_machine, core.CONTROL_DT)
                 return 1
 
         if args.dry_run:
@@ -679,11 +714,11 @@ def _main(cleanup) -> int:
             try:
                 if recorder is not None:
                     recorder.event("hold")
-                reached = hw.hold_pose(link, default_pose, kp, kd, mode_machine, core.CONTROL_DT, args.hold_s)
+                reached = hw.hold_pose(link, default_pose, hold_kp, hold_kd, mode_machine, core.CONTROL_DT, args.hold_s)
                 hw.report_tracking(default_pose, reached, list(hw.MOTOR_NAMES))
             except hw.OperatorAbort as exc:
                 print(f"[..] {exc}")
-            hw.damp_down(link, kd, mode_machine, core.CONTROL_DT)
+            hw.damp_down(link, hold_kd, mode_machine, core.CONTROL_DT)
             print("[ok] dry run complete -- the policy was never engaged")
             return 0
     if args.heading is None and tracking_runner is None:
@@ -720,7 +755,9 @@ def _main(cleanup) -> int:
         f"  order={'tracking29' if tracking_runner is not None else args.policy_physics}"
         f"  mode_machine={mode_machine}\n"
         f"     {physics}  policy at {1 / core.CONTROL_DT:.0f} Hz"
-        + (f"  reference={tracking_runner.duration:.2f}s, plays once" if tracking_runner is not None
+        + (f"  reference={tracking_runner.duration:.2f}s,"
+           f" {'then holds its final frame' if args.hold_at_end else 'plays once'}"
+           if tracking_runner is not None
            else f"  cmd=({args.vx:+.2f}, {args.vy:+.2f}) m/s, heading {np.rad2deg(commander.heading):+.0f} deg")
     )
     help_text = tele.HELP_NO_STRAFE if args.no_strafe else tele.HELP
@@ -760,6 +797,7 @@ def _main(cleanup) -> int:
     motion_start = env.data.time if env is not None else wall_start
     control_pacer = PeriodicDeadline(core.CONTROL_DT)
     fell_at = None
+    held_at_end = False
     steps_done = 0
     clamped_steps = 0
     k = -1
@@ -775,9 +813,15 @@ def _main(cleanup) -> int:
             for k in itertools.count() if n_steps is None else range(n_steps):
                 step_started_ns = time.monotonic_ns()
                 elapsed_s = (env.data.time if env is not None else time.monotonic()) - motion_start
-                if tracking_runner is not None and elapsed_s >= tracking_runner.duration - 1e-8:
+                if (tracking_runner is not None and not args.hold_at_end
+                        and elapsed_s >= tracking_runner.duration - 1e-8):
                     print("[ok] reference motion complete")
                     break
+                if tracking_runner is not None and args.hold_at_end and not held_at_end \
+                        and elapsed_s >= tracking_runner.duration - 1e-8:
+                    held_at_end = True
+                    print(f"[ok] reference motion complete at t={elapsed_s:.2f}s;"
+                          " holding its final frame -- stop with Ctrl-C or the remote abort")
                 if args.teleop:
                     for key in keys.poll():
                         if key == "?":
@@ -970,6 +1014,17 @@ def _main(cleanup) -> int:
             " targets outside the mechanical travel. Expected on the ankles -- check whether the"
             " joints actually reached their stops before deciding to clamp."
         )
+    if recorder is not None and not args.no_bundle:
+        # Last thing the run does, and never fatal: the recording is already on disk, and a viewer
+        # export that fails is an inconvenience rather than lost data.
+        recorder.close()
+        try:
+            from g1_deploy.analysis import save_report
+
+            output, _ = save_report(recorder.directory, None, plots=False)
+            print(f"[deploynose] {output / (Path(recorder.directory).resolve().name + '.deploynose')}")
+        except Exception as exc:  # noqa: BLE001 - reported, never raised over a finished run
+            print(f"[warn] could not export the deploynose bundle: {exc}")
     return 1 if tracking_runner is not None and fell_at is not None else 0
 
 

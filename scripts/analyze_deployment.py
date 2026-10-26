@@ -15,11 +15,14 @@ def main():
     parser.add_argument("recording", help="Directory containing metadata.json and recording.sqlite3.")
     parser.add_argument("--out", help="Report directory; defaults to RECORDING/analysis.")
     parser.add_argument("--no_plots", action="store_true", help="Export deploynose data without static PNG plots.")
+    parser.add_argument("--window", choices=("policy", "all"), default="policy",
+                        help="Export only what the policy was running for, or the whole recording"
+                             " including the ramp and the alignment hold.")
     args = parser.parse_args()
     from g1_deploy.bootstrap import ensure_cyclonedds
     ensure_cyclonedds()
     from g1_deploy.analysis import save_report
-    output, summary = save_report(args.recording, args.out, plots=not args.no_plots)
+    output, summary = save_report(args.recording, args.out, plots=not args.no_plots, window=args.window)
     print(f"[report] {output}")
     from pathlib import Path
     print(f"[deploynose] {output / (Path(args.recording).resolve().name + '.deploynose')}")

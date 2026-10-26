@@ -97,6 +97,9 @@ window.DeploynoseCharts = (() => {
       this.tip.hidden = true;
       this.plot.append(this.canvas, this.overlay, this.tip);
       this.card.append(this.plot);
+      this.stats = document.createElement("table");
+      this.stats.className = "stats";
+      this.card.append(this.stats);
       this.resize = new ResizeObserver(() => this.draw());
       this.resize.observe(this.plot);
       this.overlay.addEventListener("pointermove", event => this.pointerMove(event));
@@ -251,6 +254,8 @@ window.DeploynoseCharts = (() => {
       }
       ctx.setLineDash([]);
       for (const series of this.series) this.drawSeries(ctx, series);
+      ctx.setLineDash([]);
+      this.updateStats();
       ctx.restore();
       if (!hasValues) {
         ctx.fillStyle = "#91a198";
@@ -259,6 +264,89 @@ window.DeploynoseCharts = (() => {
       }
       this.drawOverlay();
     }
+    // Min, max, peak-to-peak, mean and RMS over whatever the chart is currently showing, so
+    // zooming into one stride gives that stride's numbers rather than the whole run's.
+    summarize(series) {
+      const start = Math.max(0, lowerBound(series.x, this.xmin));
+      const end = Math.min(series.x.length, lowerBound(series.x, this.xmax) + 1);
+      let min = Infinity, max = -Infinity, sum = 0, sumSq = 0, n = 0;
+      for (let i = start; i < end; i++) {
+        const value = valueAt(series, i);
+        if (!Number.isFinite(value)) continue;
+        if (value < min) min = value;
+        if (value > max) max = value;
+        sum += value;
+        sumSq += value * value;
+        n++;
+      }
+      if (!n) return null;
+      const mean = sum / n;
+      return {
+        n,
+        min,
+        max,
+        p2p: max - min,
+        mean,
+        rms: Math.sqrt(Math.max(sumSq / n - mean * mean, 0))
+      };
+    }
+
+    updateStats() {
+      if (!this.stats) return;
+      const unit = this.spec.unit ? ` [${this.spec.unit}]` : "";
+      const columns = [
+        ["最小", "窗口内的最小值"],
+        ["最大", "窗口内的最大值"],
+        ["峰峰", "最大 − 最小。只由两个采样点决定，一个毛刺就能把它顶高"],
+        ["均值", "窗口内的算术平均，告诉你信号偏在哪一侧"],
+        ["RMS", "绕均值的标准差。每个采样都参与，衡量平均摆动幅度；和峰峰差得多说明是偶发尖峰"],
+      ];
+      const rows = [];
+      const header = document.createElement("tr");
+      const first = document.createElement("th");
+      first.textContent = "曲线" + unit;
+      header.append(first);
+      for (const [name, help] of columns) {
+        const cell = document.createElement("th");
+        cell.textContent = name;
+        cell.title = help;
+        header.append(cell);
+      }
+      // Keeps the column count equal to the data rows, which carry a trailing ratio cell.
+      header.append(document.createElement("th"));
+      rows.push(header);
+      let previous = null;
+      for (const series of this.series) {
+        const s = this.summarize(series);
+        if (!s) continue;
+        const row = document.createElement("tr");
+        const label = document.createElement("td");
+        const swatch = document.createElement("i");
+        swatch.style.backgroundColor = series.color;
+        if (series.dash) swatch.classList.add("dashed");
+        label.append(swatch, document.createTextNode(series.name));
+        row.append(label);
+        for (const value of [s.min, s.max, s.p2p, s.mean, s.rms]) {
+          const cell = document.createElement("td");
+          cell.textContent = number(value);
+          row.append(cell);
+        }
+        if (series.dash && previous) {
+          const ratio = document.createElement("td");
+          ratio.className = "ratio";
+          ratio.textContent = `峰峰 ${number(previous.p2p / s.p2p)}× · RMS ${number(previous.rms / s.rms)}×`;
+          ratio.title = "主记录相对这条对比曲线的倍数";
+          row.append(ratio);
+        } else {
+          row.append(document.createElement("td"));
+          previous = s;
+        }
+        rows.push(row);
+      }
+      this.stats.replaceChildren(...rows);
+      this.stats.hidden = rows.length < 2;
+    }
+
     drawSeries(ctx, series) {
       const start = Math.max(0, lowerBound(series.x, this.xmin) - 1);
       const end = Math.min(series.x.length, lowerBound(series.x, this.xmax) + 1);
@@ -267,7 +355,8 @@ window.DeploynoseCharts = (() => {
         previousY = null;
       ctx.beginPath();
       ctx.strokeStyle = series.color;
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = series.dash ? 1.1 : 1.4;
+      ctx.setLineDash(series.dash ? [5, 4] : []);
       const flush = () => {
         if (!bucket.length) return;
         let min = bucket[0],

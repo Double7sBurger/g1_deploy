@@ -132,9 +132,14 @@ class G1TrackingPolicyRunner:
         self.tilt_error = 0.0
 
     def index_at(self, elapsed_s):
+        """Reference frame for ``elapsed_s``, held at the last one once the clip has played.
+
+        Every packaged clip ends standing still, so a frozen final frame is a reference the policy
+        can keep tracking rather than a cliff.
+        """
         if not np.isfinite(elapsed_s) or elapsed_s < 0:
             raise ValueError("Invalid reference time")
-        return min(int(elapsed_s / self.control_dt + 1e-6), self.num_steps)
+        return min(int(elapsed_s / self.control_dt + 1e-6), self.num_steps - 1)
 
     def command_at(self, elapsed_s):
         index = self.index_at(elapsed_s)

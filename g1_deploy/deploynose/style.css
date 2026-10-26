@@ -1157,3 +1157,98 @@ main {
     padding: 8px 5px
   }
 }
+
+.import-button.secondary {
+  background: none;
+  border: 1px solid currentColor;
+  opacity: 0.75;
+}
+
+.compare-loaded {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.8em;
+  opacity: 0.8;
+  padding: 0.3em 0.6em;
+}
+
+.compare-loaded span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-loaded button {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 0;
+}
+
+table.stats {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.4em;
+}
+
+table.stats th {
+  text-align: right;
+  font-weight: 500;
+  opacity: 0.6;
+  padding: 0.2em 0.5em;
+  cursor: help;
+}
+
+table.stats th:first-child,
+table.stats td:first-child {
+  text-align: left;
+  white-space: nowrap;
+}
+
+table.stats td {
+  text-align: right;
+  padding: 0.15em 0.5em;
+  border-top: 1px solid rgba(128, 128, 128, 0.18);
+}
+
+table.stats td.ratio {
+  opacity: 0.65;
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
+table.stats i {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  margin-right: 0.45em;
+}
+
+table.stats i.dashed {
+  height: 0;
+  border-top: 2px dashed currentColor;
+  border-radius: 0;
+  background: none !important;
+  color: #9aa3b2;
+}
+
+dl.stats-help {
+  margin: 0.4em 0 0.6em;
+}
+
+dl.stats-help dt {
+  font-weight: 600;
+  margin-top: 0.5em;
+}
+
+dl.stats-help dd {
+  margin: 0.1em 0 0 1.2em;
+  opacity: 0.85;
+}

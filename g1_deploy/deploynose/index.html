@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'">
   <title>deploynose · Policy 诊断工作台</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
@@ -12,12 +12,18 @@
 </head>
 <body>
   <input id="file-input" type="file" accept=".deploynose" hidden>
+  <input id="compare-input" type="file" accept=".deploynose" hidden>
   <aside class="sidebar">
     <a class="brand" href="#" aria-label="deploynose 首页">
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M5 17h5l3-8 5 16 3-8h6" fill="none" stroke="white" stroke-width="2.2" stroke-linejoin="round"/></svg>
       <span>deploynose<small>POLICY DIAGNOSTICS</small></span>
     </a>
     <button class="import-button" id="open-file"><span>＋</span> 导入部署记录 <kbd>O</kbd></button>
+    <button class="import-button secondary" id="open-compare"><span>⇄</span> 导入对比记录</button>
+    <div id="compare-loaded" class="compare-loaded" hidden>
+      <span id="compare-name"></span>
+      <button id="clear-compare" aria-label="移除对比记录">×</button>
+    </div>
     <div class="nav-label">分析空间</div>
     <nav aria-label="诊断页面">
       <button data-view="overview" class="active"><span>◫</span> 总览 <small>01</small></button>

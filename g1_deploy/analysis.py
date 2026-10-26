@@ -97,6 +97,75 @@ def vibration_spectrum(ticks, velocity, cutoff_hz=5.0):
                 peak_hz=frequency[band][np.argmax(density[band], axis=0)])
 
 
+
+def robot_clock(host_seconds, ticks):
+    """Map host timestamps onto the robot's own clock, in seconds from the first sample.
+
+    Every stream is stamped with the host's monotonic clock, which is the wrong axis for anything
+    but host-side latency. ``--sim sync`` steps the simulator as fast as it can -- a 7.96 s clip
+    finishes in 3.0 s of host time -- so a simulation plotted against the host clock is compressed
+    against the same run on hardware, and the two cannot be overlaid. ``rt/lowstate`` carries the
+    robot's (or the simulator's) own millisecond counter, which runs at the same rate in both.
+
+    Args:
+        host_seconds: Host timestamps of the ``lowstate`` samples, in seconds.
+        ticks: The unsigned millisecond counter from the same samples.
+
+    Returns:
+        ``(robot_seconds, convert)`` -- the robot clock for those samples, and a function mapping
+        any host-stamped array onto it.
+    """
+    robot = np.r_[0.0, np.cumsum(np.maximum(tick_intervals(ticks), 0.0))]
+    return robot, lambda host: np.interp(np.asarray(host, dtype=np.float64), host_seconds, robot)
+
+
+TIME_BASES = {
+    "t": ("tick", "mode_machine", "q", "dq", "ddq", "tau_est", "temperature", "vol", "motorstate",
+          "quaternion", "gyroscope", "accelerometer", "rpy", "orientation_rpy",
+          "receipt_interval_ms", "robot_interval_ms"),
+    "target_t": ("target_q", "target_dq", "target_kp", "target_kd", "target_tau"),
+    "control_t": ("command", "reference_command", "heading_target", "yaw", "heading_error",
+                  "state_age_ms", "control_interval_ms", "control_step"),
+    "tracking_t": ("reference_time", "tracking_tilt_error"),
+    "policy_t": ("action_raw", "observation", "inference_ms", "policy_step"),
+    "write_t": ("write_ms", "write_success"),
+    "depth_t": ("depth_age_ms",),
+}
+"""Which exported arrays ride on which clock, so a time window can cut all of them together."""
+
+
+def window_arrays(arrays, span):
+    """Keep only the samples inside ``span`` seconds, on every time base.
+
+    The ramp and the alignment hold dominate a hardware recording -- 66 s of the 72 s cr7 run -- and
+    they are not what the policy did. Cutting them out here rather than at record time leaves the
+    raw ``recording.sqlite3`` complete, so the hold can still be examined on demand.
+
+    Args:
+        arrays: The exported arrays from :func:`analyze`.
+        span: ``(start, end)`` in seconds since the recording origin, or ``None`` to keep everything.
+
+    Returns:
+        A new dict with each time base and the arrays on it sliced to ``span``.
+    """
+    if span is None:
+        return arrays
+    low, high = span
+    out = dict(arrays)
+    for base, keys in TIME_BASES.items():
+        if base not in out:
+            continue
+        keep = (out[base] >= low) & (out[base] <= high)
+        if not keep.any():
+            continue
+        for key in (base, *keys):
+            if key in out and len(out[key]) == len(keep):
+                out[key] = out[key][keep]
+        # Rebase so every windowed recording starts at zero and two of them can be overlaid.
+        out[base] = out[base] - low
+    return out
+
+
 def analyze(directory):
     from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_, LowState_
 
@@ -133,6 +202,7 @@ def analyze(directory):
     hi = (stops[-1] - origin) * 1e-9 if stops else t[-1]
     active = (t >= lo) & (t <= hi)
     summary = dict(samples=len(t), recorded_seconds=float(t[-1] - t[0]),
+                   policy_window_s=[float(lo), float(hi)] if starts else None,
                    analysis_phase="policy" if starts else "all (no policy_start event)",
                    clean_shutdown=metadata["clean_shutdown"], dropped=metadata.get("dropped", {}),
                    writer_error=metadata.get("error"),
@@ -210,14 +280,36 @@ def analyze(directory):
     arrays["receipt_interval_ms"] = np.r_[np.nan, np.diff(t) * 1000]
     arrays["robot_interval_ms"] = np.r_[np.nan, tick_intervals(ticks) * 1000]
     summary["expected_control_ms"] = metadata["control_dt"] * 1000
+    # Last, so every interval and latency above is still measured on the host clock that produced
+    # it; only the axes move.
+    robot, convert = robot_clock(t, ticks)
+    for base in TIME_BASES:
+        if base in arrays:
+            arrays[base] = robot if base == "t" else convert(arrays[base])
+    if summary["policy_window_s"]:
+        summary["policy_window_s"] = [float(value) for value in convert(summary["policy_window_s"])]
+    summary["clock"] = "robot (rt/lowstate tick), seconds from the first sample"
     return metadata, summary, arrays
 
 
-def save_report(directory, output=None, *, plots=True):
-    """Write portable arrays, metrics and diagnostic plots beside the raw recording."""
+def save_report(directory, output=None, *, plots=True, window="policy"):
+    """Write portable arrays, metrics and diagnostic plots beside the raw recording.
+
+    Args:
+        directory: The recording directory.
+        output: Report directory; defaults to ``directory/analysis``.
+        plots: Also render the static PNGs.
+        window: ``"policy"`` exports only the samples between ``policy_start`` and ``policy_stop``;
+            ``"all"`` exports the whole recording, ramp and hold included.
+    """
     from g1_deploy.bundle import finite_json, write_bundle
 
     metadata, summary, data = analyze(directory)
+    if window not in ("policy", "all"):
+        raise ValueError("window must be 'policy' or 'all'")
+    if window == "policy":
+        data = window_arrays(data, summary["policy_window_s"])
+    summary["exported_phase"] = window if summary["policy_window_s"] else "all (no policy_start event)"
     output = Path(output or Path(directory) / "analysis")
     output.mkdir(parents=True, exist_ok=True)
     (output / "summary.json").write_text(json.dumps(finite_json(summary), indent=2, allow_nan=False) + "\n")
@@ -248,7 +340,7 @@ def save_report(directory, output=None, *, plots=True):
         axes[3].axhline(metadata["control_dt"] * 1000, linestyle="--", color="black", label="nominal period")
         axes[3].legend()
     axes[3].set_ylabel("Timing [ms]")
-    axes[3].set_xlabel("Host monotonic time since recording start [s]")
+    axes[3].set_xlabel("Robot clock since the recording started [s]")
     for axis in axes:
         axis.grid(alpha=0.2)
     fig.tight_layout()

@@ -15,7 +15,9 @@
     policy: ["Policy 信号", "POLICY SIGNALS"],
     events: ["事件与配置", "EVENTS & CONFIGURATION"],
   };
+  const COMPARISON_COLOR = "#9aa3b2";
   let dataset = null,
+    comparison = null,
     currentView = "overview",
     charts = [],
     loadVersion = 0,
@@ -67,9 +69,10 @@
     return array(name)?.data;
   }
 
-  function trace(key, column, name, timeKey = "t", scale = 1, extra = {}) {
-    const a = array(key),
-      x = values(timeKey);
+  function trace(key, column, name, timeKey = "t", scale = 1, extra = {}, from = null) {
+    const source = from || dataset;
+    const a = source?.arrays[key],
+      x = source?.arrays[timeKey]?.data;
     if (!a || !x) return null;
     const stride = a.shape.slice(1).reduce((n, dimension) => n * dimension, 1);
     if (column >= stride) return null;
@@ -80,6 +83,13 @@
       column,
       name,
       scale,
+      source: {
+        key,
+        column,
+        timeKey,
+        scale,
+        extra
+      },
       ...extra
     };
   }
@@ -88,9 +98,34 @@
     charts.push(new TraceChart($("charts"), {
       title,
       unit,
-      series,
+      series: withComparison(series),
       ...options
     }, session));
+  }
+
+  // Both recordings are exported on the robot's own clock, zero-based at the moment the policy
+  // engaged, so a simulation rehearsal and a hardware run line up without any rescaling here.
+  function withComparison(series) {
+    if (!comparison) return series;
+    const out = [];
+    for (const s of series) {
+      out.push(s);
+      if (!s?.source) continue;
+      const {
+        key,
+        column,
+        timeKey,
+        scale,
+        extra
+      } = s.source;
+      const other = trace(key, column, s.name + " · 对比", timeKey, scale, extra, comparison);
+      if (other) out.push({
+        ...other,
+        dash: true,
+        color: COMPARISON_COLOR
+      });
+    }
+    return out;
   }
 
   function notice(text, info = false) {
@@ -245,14 +280,20 @@
     };
   }
 
-  async function loadFile(file) {
+  async function loadFile(file, asComparison = false) {
     if (!file) return;
+    if (asComparison && !dataset) {
+      showMessage("请先导入一份部署记录，再导入要对比的那一份。");
+      return;
+    }
     const version = ++loadVersion;
     $("loading").hidden = false;
     showMessage("");
     try {
       const result = await readBundle(file);
-      if (version === loadVersion) install(result);
+      if (version !== loadVersion) return;
+      if (asComparison) setComparison(result);
+      else install(result);
     } catch (error) {
       if (version === loadVersion) showMessage("无法打开文件：" + (error.message || "文件损坏。请重新运行分析工具导出 .deploynose 文件。"));
     } finally {
@@ -260,8 +301,23 @@
     }
   }
 
+  function setComparison(result) {
+    comparison = result;
+    $("compare-name").textContent = result.filename;
+    $("compare-loaded").hidden = false;
+    renderView();
+  }
+
+  function clearComparison() {
+    comparison = null;
+    $("compare-loaded").hidden = true;
+    renderView();
+  }
+
   function install(result) {
     dataset = result;
+    comparison = null;
+    $("compare-loaded").hidden = true;
     derivatives = new Map();
     const {
       metadata: m,
@@ -380,6 +436,26 @@
     }), trace("gyroscope", 2, "IMU 机身 z 轴角速度")], {
       subtitle: "机身倾斜时，z 轴角速度与世界航向变化率并不相同"
     });
+    explainStats();
+  }
+
+  // The statistics strip appears under every chart; this says what the columns mean, once.
+  function explainStats() {
+    const card = document.createElement("section");
+    card.className = "detail-card";
+    card.innerHTML = `<h3>每张图下方的数值</h3>
+      <p>统计的是<strong>当前显示的时间窗口</strong>。放大到某一步，数值就是那一步的。</p>
+      <dl class="stats-help">
+        <dt>最小 / 最大</dt><dd>窗口内信号到过的两个端点。</dd>
+        <dt>峰峰</dt><dd>最大 − 最小，信号一共扫过多大范围。<strong>只由两个采样点决定</strong>，
+          一个毛刺就能把它顶高，不适合拿来比"谁动得更厉害"。</dd>
+        <dt>均值</dt><dd>窗口内的算术平均。偏离零说明信号整体偏在一侧 —— 姿态角上就是常值倾斜。</dd>
+        <dt>RMS</dt><dd>绕均值的标准差，每个采样都参与，衡量平均摆动幅度。
+          <strong>RMS 和峰峰差得多，说明大幅度只出现在少数瞬间；两者一致，说明整段都在大幅度动。</strong></dd>
+      </dl>
+      <p>导入对比记录后，虚线那一行末尾会给出主记录相对它的<strong>峰峰倍数</strong>和
+        <strong>RMS 倍数</strong>。两个倍数一致才说明是持续性差异。</p>`;
+    $("details").append(card);
   }
 
   function timingCharts() {
@@ -700,6 +776,12 @@
   }
 
   $("open-file").addEventListener("click", () => $("file-input").click());
+  $("open-compare").addEventListener("click", () => $("compare-input").click());
+  $("compare-input").addEventListener("change", event => {
+    loadFile(event.target.files[0], true);
+    event.target.value = "";
+  });
+  $("clear-compare").addEventListener("click", clearComparison);
   $("drop-zone").addEventListener("click", () => $("file-input").click());
   $("drop-zone").addEventListener("keydown", event => {
     if (["Enter", " "].includes(event.key)) {
@@ -771,4 +853,17 @@
     }
     if (event.key === "Escape" && dataset) session.reset();
   });
+
+  // ?file=<url> opens a bundle without the file picker, so a run can be served straight from the
+  // analysis directory. Only over http: a file:// page is not allowed to fetch its own neighbours.
+  const requested = new URLSearchParams(location.search).get("file");
+  if (requested && location.protocol !== "file:") {
+    fetch(requested)
+      .then(response => {
+        if (!response.ok) throw new Error(response.status + " " + response.statusText);
+        return response.blob();
+      })
+      .then(blob => loadFile(new File([blob], decodeURIComponent(requested.split("/").pop()))))
+      .catch(error => showMessage("无法打开 " + requested + "：" + error.message));
+  }
 })();
