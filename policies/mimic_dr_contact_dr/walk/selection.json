@@ -1,0 +1,339 @@
+{
+  "ranking": "worst-suite full completion, mean full completion, survival fraction, suffix completion, body position error, limit violation fraction, foot rotation error; ties lower seed then later checkpoint",
+  "all_three_seeds_complete": true,
+  "best": {
+    "motion": "walk",
+    "seed": 42,
+    "iteration": 29999,
+    "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+    "checkpoint_sha256": "195eb6db91e8af9d357619cc54a57fc8df7042847e82225b2a3851ac439aba00",
+    "checkpoint": "/osmo/data/input/0/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-22_walk_s42/model_29999.pt",
+    "root": "/osmo/data/input/0",
+    "suites": {
+      "clean": {
+        "full_clip_success_rate": 1.0,
+        "phase_suffix_success_rate": 1.0,
+        "mean_fraction_survived": 1.0,
+        "full_clip_survival_seconds": 7.980000019073486,
+        "body_position_error_m": 0.018292744643986225,
+        "joint_limit_violation_fraction": 0.0,
+        "foot_orientation_error_deg": 4.087542176246643,
+        "max_joint_limit_excess_deg": 0.0,
+        "actual_push_count": 0
+      },
+      "robust": {
+        "full_clip_success_rate": 1.0,
+        "phase_suffix_success_rate": 1.0,
+        "mean_fraction_survived": 1.0,
+        "full_clip_survival_seconds": 7.980000019073486,
+        "body_position_error_m": 0.020107955671846867,
+        "joint_limit_violation_fraction": 0.0,
+        "foot_orientation_error_deg": 4.550286889076233,
+        "max_joint_limit_excess_deg": 0.3012130558490753,
+        "actual_push_count": 128
+      }
+    }
+  },
+  "candidates": [
+    {
+      "motion": "walk",
+      "seed": 42,
+      "iteration": 29999,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "195eb6db91e8af9d357619cc54a57fc8df7042847e82225b2a3851ac439aba00",
+      "checkpoint": "/osmo/data/input/0/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-22_walk_s42/model_29999.pt",
+      "root": "/osmo/data/input/0",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.018292744643986225,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.087542176246643,
+          "max_joint_limit_excess_deg": 0.0,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.020107955671846867,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.550286889076233,
+          "max_joint_limit_excess_deg": 0.3012130558490753,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 43,
+      "iteration": 20000,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "1f6b67037630c0738480f0036ffa4286be32f8f7e792fe043dd8173821b3949f",
+      "checkpoint": "/osmo/data/input/1/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-35_walk_s43/model_20000.pt",
+      "root": "/osmo/data/input/1",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.019420232623815536,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.751958608627319,
+          "max_joint_limit_excess_deg": 0.0,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.020508967339992523,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.87427294254303,
+          "max_joint_limit_excess_deg": 0.6164348125457764,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 43,
+      "iteration": 29999,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "1b540795740a2e27de41e93b8347fa5e247d7acf915ed55db1775cf1f18bd39c",
+      "checkpoint": "/osmo/data/input/1/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-35_walk_s43/model_29999.pt",
+      "root": "/osmo/data/input/1",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.01903478242456913,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 5.485121488571167,
+          "max_joint_limit_excess_deg": 0.0,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.02103046514093876,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 5.451378345489502,
+          "max_joint_limit_excess_deg": 0.8556536436080933,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 42,
+      "iteration": 25000,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "4b637cfbc5a040b2dd71d1ee57f839c4acc6a81f7eaf24658775d7a696b85e30",
+      "checkpoint": "/osmo/data/input/0/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-22_walk_s42/model_25000.pt",
+      "root": "/osmo/data/input/0",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.018975526094436646,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.543171167373657,
+          "max_joint_limit_excess_deg": 0.8276994228363037,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.021187572740018368,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.730854630470276,
+          "max_joint_limit_excess_deg": 0.7114205360412598,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 43,
+      "iteration": 25000,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "11a1e982fe1f3d6ec0eed74974da2bf30adfa1ea51e87c750bcee00f8adb3f38",
+      "checkpoint": "/osmo/data/input/1/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-35_walk_s43/model_25000.pt",
+      "root": "/osmo/data/input/1",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.019649851135909557,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.341003477573395,
+          "max_joint_limit_excess_deg": 0.12412331998348236,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.02125139720737934,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.5804373025894165,
+          "max_joint_limit_excess_deg": 0.7899011373519897,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 42,
+      "iteration": 20000,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "3df6ad4b2692da8b54276944adf09f65199395ef5ec89acafd849fc33ab8fa1f",
+      "checkpoint": "/osmo/data/input/0/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-22_walk_s42/model_20000.pt",
+      "root": "/osmo/data/input/0",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.020088293589651585,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.698570489883423,
+          "max_joint_limit_excess_deg": 0.0,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.021780377253890038,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.996309876441956,
+          "max_joint_limit_excess_deg": 0.37435072660446167,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 44,
+      "iteration": 20000,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "f318efd4334461ee57f6e9d00a8859e6f671e87a38f9660b90d64b725540eed5",
+      "checkpoint": "/osmo/data/input/2/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-46_walk_s44/model_20000.pt",
+      "root": "/osmo/data/input/2",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.0200218940153718,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.629425525665283,
+          "max_joint_limit_excess_deg": 0.0,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.021889531053602695,
+          "joint_limit_violation_fraction": 6.848779048596043e-05,
+          "foot_orientation_error_deg": 4.8387287855148315,
+          "max_joint_limit_excess_deg": 2.4196560382843018,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 44,
+      "iteration": 29999,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "2a669f150f0544e8d3931bc1b39b5b006ab5937d1064b88c7981e87caac1c6e0",
+      "checkpoint": "/osmo/data/input/2/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-46_walk_s44/model_29999.pt",
+      "root": "/osmo/data/input/2",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.020401660352945328,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.494991302490234,
+          "max_joint_limit_excess_deg": 0.0,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.02152376528829336,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.7287129163742065,
+          "max_joint_limit_excess_deg": 0.47745072841644287,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "walk",
+      "seed": 44,
+      "iteration": 25000,
+      "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+      "checkpoint_sha256": "041fb401629b95280db5cc79d009bc1f6ee74c1060d0de073cf51afac100f590",
+      "checkpoint": "/osmo/data/input/2/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-43-46_walk_s44/model_25000.pt",
+      "root": "/osmo/data/input/2",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.02063764166086912,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.331789791584015,
+          "max_joint_limit_excess_deg": 0.0,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 7.980000019073486,
+          "body_position_error_m": 0.02208639495074749,
+          "joint_limit_violation_fraction": 0.0,
+          "foot_orientation_error_deg": 4.554109573364258,
+          "max_joint_limit_excess_deg": 0.5757388472557068,
+          "actual_push_count": 128
+        }
+      }
+    }
+  ],
+  "clean_full_completion_at_least_95pct": true,
+  "robust_full_completion_at_least_95pct": true,
+  "hardware_validated": false
+}

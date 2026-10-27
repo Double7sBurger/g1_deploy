@@ -1,0 +1,339 @@
+{
+  "ranking": "worst-suite full completion, mean full completion, survival fraction, suffix completion, body position error, limit violation fraction, foot rotation error; ties lower seed then later checkpoint",
+  "all_three_seeds_complete": true,
+  "best": {
+    "motion": "speed-vault",
+    "seed": 44,
+    "iteration": 29999,
+    "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+    "checkpoint_sha256": "dccf24e71528c43d98b9913f6cad81a15c59557f49588b5205d5258c21c33329",
+    "checkpoint": "/osmo/data/input/2/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-47-25_speed-vault_s44/model_29999.pt",
+    "root": "/osmo/data/input/2",
+    "suites": {
+      "clean": {
+        "full_clip_success_rate": 1.0,
+        "phase_suffix_success_rate": 1.0,
+        "mean_fraction_survived": 1.0,
+        "full_clip_survival_seconds": 3.8999998569488525,
+        "body_position_error_m": 0.05180920846760273,
+        "joint_limit_violation_fraction": 0.008122599218040705,
+        "foot_orientation_error_deg": 12.344549417495728,
+        "max_joint_limit_excess_deg": 25.294485092163086,
+        "actual_push_count": 0
+      },
+      "robust": {
+        "full_clip_success_rate": 1.0,
+        "phase_suffix_success_rate": 1.0,
+        "mean_fraction_survived": 1.0,
+        "full_clip_survival_seconds": 3.8999998569488525,
+        "body_position_error_m": 0.05257619544863701,
+        "joint_limit_violation_fraction": 0.007982554379850626,
+        "foot_orientation_error_deg": 12.379575252532959,
+        "max_joint_limit_excess_deg": 30.888202667236328,
+        "actual_push_count": 128
+      }
+    }
+  },
+  "candidates": [
+    {
+      "motion": "speed-vault",
+      "seed": 44,
+      "iteration": 29999,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "dccf24e71528c43d98b9913f6cad81a15c59557f49588b5205d5258c21c33329",
+      "checkpoint": "/osmo/data/input/2/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-47-25_speed-vault_s44/model_29999.pt",
+      "root": "/osmo/data/input/2",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05180920846760273,
+          "joint_limit_violation_fraction": 0.008122599218040705,
+          "foot_orientation_error_deg": 12.344549417495728,
+          "max_joint_limit_excess_deg": 25.294485092163086,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05257619544863701,
+          "joint_limit_violation_fraction": 0.007982554379850626,
+          "foot_orientation_error_deg": 12.379575252532959,
+          "max_joint_limit_excess_deg": 30.888202667236328,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 43,
+      "iteration": 25000,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "36e6195f47a3f2319ec18f933089dac101de6811b1f975f98a22b582c88e7a9a",
+      "checkpoint": "/osmo/data/input/1/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-46-53_speed-vault_s43/model_25000.pt",
+      "root": "/osmo/data/input/1",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.054746149107813835,
+          "joint_limit_violation_fraction": 0.009443021845072508,
+          "foot_orientation_error_deg": 12.578850269317627,
+          "max_joint_limit_excess_deg": 10.497467994689941,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05388892814517021,
+          "joint_limit_violation_fraction": 0.00898287445306778,
+          "foot_orientation_error_deg": 13.622880935668945,
+          "max_joint_limit_excess_deg": 11.620518684387207,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 43,
+      "iteration": 29999,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "8deb9110f5c3dacd167969342d025693538d65cfec55c22644e22ad8b887e0b6",
+      "checkpoint": "/osmo/data/input/1/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-46-53_speed-vault_s43/model_29999.pt",
+      "root": "/osmo/data/input/1",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.055600618943572044,
+          "joint_limit_violation_fraction": 0.00654209335334599,
+          "foot_orientation_error_deg": 13.002089500427246,
+          "max_joint_limit_excess_deg": 7.526493072509766,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.055639173835515976,
+          "joint_limit_violation_fraction": 0.00584186939522624,
+          "foot_orientation_error_deg": 13.357048511505127,
+          "max_joint_limit_excess_deg": 10.095221519470215,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 42,
+      "iteration": 29999,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "32ba9cb29abe8a7fb403bdd93819a12f44882b391cde09ade9f57c7882ce6051",
+      "checkpoint": "/osmo/data/input/0/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-46-56_speed-vault_s42/model_29999.pt",
+      "root": "/osmo/data/input/0",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05579354055225849,
+          "joint_limit_violation_fraction": 0.008142605889588594,
+          "foot_orientation_error_deg": 12.682946681976318,
+          "max_joint_limit_excess_deg": 10.978477478027344,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05633137375116348,
+          "joint_limit_violation_fraction": 0.008582746610045433,
+          "foot_orientation_error_deg": 13.268123865127563,
+          "max_joint_limit_excess_deg": 11.418570518493652,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 42,
+      "iteration": 25000,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "9deb6b8b45e87f05681ffafacb0d93a9f4e37d151aa22124eb20675b131befa9",
+      "checkpoint": "/osmo/data/input/0/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-46-56_speed-vault_s42/model_25000.pt",
+      "root": "/osmo/data/input/0",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.057743655517697334,
+          "joint_limit_violation_fraction": 0.007922535296529531,
+          "foot_orientation_error_deg": 13.628270149230957,
+          "max_joint_limit_excess_deg": 10.22669506072998,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05552519112825394,
+          "joint_limit_violation_fraction": 0.008402688894420862,
+          "foot_orientation_error_deg": 14.371262788772583,
+          "max_joint_limit_excess_deg": 10.8373384475708,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 43,
+      "iteration": 20000,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "ba67c52b6a50b65e4cef727dd8be388fdfe37646bf3660f5781b892363259d74",
+      "checkpoint": "/osmo/data/input/1/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-46-53_speed-vault_s43/model_20000.pt",
+      "root": "/osmo/data/input/1",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05965469963848591,
+          "joint_limit_violation_fraction": 0.007662451826035976,
+          "foot_orientation_error_deg": 13.944037437438965,
+          "max_joint_limit_excess_deg": 13.972433090209961,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05872010253369808,
+          "joint_limit_violation_fraction": 0.008102593012154102,
+          "foot_orientation_error_deg": 14.497536182403564,
+          "max_joint_limit_excess_deg": 12.217135429382324,
+          "actual_push_count": 128
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 44,
+      "iteration": 20000,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "a4b79725666c5c33baba8411bdb14fff38b28310bc1d4afacab0eb1146621589",
+      "checkpoint": "/osmo/data/input/2/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-47-25_speed-vault_s44/model_20000.pt",
+      "root": "/osmo/data/input/2",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05545310489833355,
+          "joint_limit_violation_fraction": 0.007842509541660547,
+          "foot_orientation_error_deg": 12.731152772903442,
+          "max_joint_limit_excess_deg": 26.918073654174805,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 0.984375,
+          "mean_fraction_survived": 0.9933677911758423,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05369635857641697,
+          "joint_limit_violation_fraction": 0.008022567257285118,
+          "foot_orientation_error_deg": 12.784002542495728,
+          "max_joint_limit_excess_deg": 31.074495315551758,
+          "actual_push_count": 127
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 44,
+      "iteration": 25000,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "7521b7498f9cac30b7e7539d29802d8aa3e799b877160da53d75454ad080aad5",
+      "checkpoint": "/osmo/data/input/2/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-47-25_speed-vault_s44/model_25000.pt",
+      "root": "/osmo/data/input/2",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05539305508136749,
+          "joint_limit_violation_fraction": 0.008162612095475197,
+          "foot_orientation_error_deg": 11.877812385559082,
+          "max_joint_limit_excess_deg": 25.319244384765625,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 0.984375,
+          "mean_fraction_survived": 0.9933677911758423,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.05398426204919815,
+          "joint_limit_violation_fraction": 0.008222631178796291,
+          "foot_orientation_error_deg": 12.258078575134277,
+          "max_joint_limit_excess_deg": 28.711578369140625,
+          "actual_push_count": 127
+        }
+      }
+    },
+    {
+      "motion": "speed-vault",
+      "seed": 42,
+      "iteration": 20000,
+      "motion_sha256": "5301e3441d3d70df3f254b109fda21f53ccc799f1aa408e4d4cafff60b425394",
+      "checkpoint_sha256": "ce09b039ff8987a7804b507e8606515334f268f4d0b672e30993a9d5f1abd4b3",
+      "checkpoint": "/osmo/data/input/0/logs/rsl_rl/g1_motion_tracking/2026-10-26_06-46-56_speed-vault_s42/model_20000.pt",
+      "root": "/osmo/data/input/0",
+      "suites": {
+        "clean": {
+          "full_clip_success_rate": 1.0,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 1.0,
+          "full_clip_survival_seconds": 3.8999998569488525,
+          "body_position_error_m": 0.06075716018676758,
+          "joint_limit_violation_fraction": 0.007822503335773945,
+          "foot_orientation_error_deg": 15.907845258712769,
+          "max_joint_limit_excess_deg": 11.87672233581543,
+          "actual_push_count": 0
+        },
+        "robust": {
+          "full_clip_success_rate": 0.984375,
+          "phase_suffix_success_rate": 1.0,
+          "mean_fraction_survived": 0.9939903914928436,
+          "full_clip_survival_seconds": 3.8531248569488525,
+          "body_position_error_m": 0.058786941692233086,
+          "joint_limit_violation_fraction": 0.008100001141428947,
+          "foot_orientation_error_deg": 16.538264989852905,
+          "max_joint_limit_excess_deg": 11.809642791748047,
+          "actual_push_count": 127
+        }
+      }
+    }
+  ],
+  "clean_full_completion_at_least_95pct": true,
+  "robust_full_completion_at_least_95pct": true,
+  "hardware_validated": false
+}
