@@ -1,0 +1,47 @@
+{
+  "arm": "cr7-full",
+  "seed": 43,
+  "weights": {
+    "action_rate_l2": -0.01
+  },
+  "dr": true,
+  "versions": {
+    "newton": "1.5.0",
+    "mujoco": "3.11.0",
+    "mujoco-warp": "3.11.0",
+    "warp-lang": "1.16.0",
+    "rsl-rl-lib": "5.4.1",
+    "torch": "2.11.0+cu128"
+  },
+  "command": [
+    "/opt/isaaclab-venv/bin/python",
+    "scripts/rsl_rl/train.py",
+    "--task",
+    "Motion-Tracking-G1-UpstreamDR-v0",
+    "--visualizer",
+    "none",
+    "--num_envs",
+    "4096",
+    "--max_iterations",
+    "30000",
+    "--seed",
+    "43",
+    "--run_name",
+    "cr7-full_s43",
+    "agent.save_interval=500",
+    "env.rewards.action_rate_l2.weight=-0.01",
+    "env.commands.motion.motion_file=/tmp/motion-sweep/project/source/motion_tracking/data/motions/npz/g1_cr7_grounded.npz",
+    "env.events.physics_material.params.static_friction_range=[0.5, 1.5]",
+    "env.events.physics_material.params.dynamic_friction_range=[0.5, 1.5]",
+    "env.rewards.foot_slip.weight=0.0"
+  ],
+  "friction_range": [
+    0.5,
+    1.5
+  ],
+  "foot_slip_weight": 0.0,
+  "dr_ablation": "full",
+  "evaluation_protocol": "shared-dr-v1",
+  "motion_file": "source/motion_tracking/data/motions/npz/g1_cr7_grounded.npz",
+  "motion_sha256": "1e52aa209c1765e61f0590ddb77d9c6fe0f09cb372395665306034acd1d4fe9a"
+}
