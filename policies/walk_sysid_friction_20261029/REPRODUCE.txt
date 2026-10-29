@@ -1,0 +1,14 @@
+本机导出与部署接口验证（需要已冻结的训练环境）：
+python /home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_friction8_20261028/run_local.py /home/henry/workspace/isaac-spinning-up/logs/osmo/walk_deploy_20261029/export_verify.py --mode old_explicit400
+
+原生 MuJoCo 验证（已有匹配记录跳过）：
+/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_20261028/validation/venv/bin/python /home/henry/workspace/isaac-spinning-up/logs/osmo/walk_deploy_20261029/native_mujoco_validation/batch.py --workers 4
+python /home/henry/workspace/isaac-spinning-up/logs/osmo/walk_deploy_20261029/native_mujoco_validation/summarize.py
+
+示例单条播放：
+/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_20261028/validation/venv/bin/python /home/henry/workspace/isaac-spinning-up/logs/osmo/walk_deploy_20261029/native_mujoco_validation/rollout.py --directory dr_shared/rank1_s49_i25000 --mu 1.0 --output /tmp/walk_native_replay
+
+每份训练命令见 training/experiment.json，最终环境配置见 training/params/env.yaml。
+训练 Python 源码归档不含 Isaac Lab 依赖和 USD。MuJoCo MJB 已包含物理模型，重放不依赖 Newton。
+原始 964 条评估和 4 条 nominal 轨迹在 native_mujoco_validation/trial_results.tar.gz。
+脚本使用本机绝对路径；迁移后调整 DEPLOY/PACKAGES 与渲染 ASSET 路径。

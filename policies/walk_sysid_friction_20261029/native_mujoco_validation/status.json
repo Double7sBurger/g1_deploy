@@ -1,0 +1,11 @@
+{
+  "completed_candidates": [
+    "dr_ground/rank2_s45_i25000",
+    "dr_shared/rank2_s47_i29999",
+    "dr_shared/rank1_s49_i25000",
+    "dr_ground/rank1_s49_i29999"
+  ],
+  "wall_seconds": 111.29026478994638,
+  "total_candidates": 4,
+  "updated_at": "2026-10-29T16:24:03.689748+08:00"
+}

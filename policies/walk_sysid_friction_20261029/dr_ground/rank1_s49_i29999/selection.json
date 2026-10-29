@@ -1,0 +1,41 @@
+{
+  "motion": "walk-ground",
+  "seed": 49,
+  "iteration": 29999,
+  "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3",
+  "checkpoint_sha256": "620a5c24a6bddc3e9a4a5f68693a0796b557956828336cb376dfdd1115655dc9",
+  "checkpoint": "/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_friction8_20261028/partial_results/selected/walk-ground/best_1/model_29999.pt",
+  "root": "/osmo/data/input/7",
+  "suites": {
+    "clean": {
+      "full_clip_success_rate": 1.0,
+      "phase_suffix_success_rate": 1.0,
+      "mean_fraction_survived": 1.0,
+      "full_clip_survival_seconds": 7.980000019073486,
+      "body_position_error_m": 0.02127133123576641,
+      "joint_limit_violation_fraction": 0.0001761666153470287,
+      "foot_orientation_error_deg": 4.865144491195679,
+      "max_joint_limit_excess_deg": 3.8913331031799316,
+      "actual_push_count": 0,
+      "foot_slip_mean_speed_m_s": 0.021473616361618042
+    },
+    "robust": {
+      "full_clip_success_rate": 1.0,
+      "phase_suffix_success_rate": 1.0,
+      "mean_fraction_survived": 1.0,
+      "full_clip_survival_seconds": 7.980000019073486,
+      "body_position_error_m": 0.027238568291068077,
+      "joint_limit_violation_fraction": 0.0001468055124860257,
+      "foot_orientation_error_deg": 6.398090481758118,
+      "max_joint_limit_excess_deg": 4.245302200317383,
+      "actual_push_count": 313,
+      "foot_slip_mean_speed_m_s": 0.04081904515624046
+    }
+  },
+  "mode": "old_explicit400",
+  "arm": "walk-ground",
+  "training_seed": 49,
+  "sysid_sha256": "fbc6b33b6ae25bdc24de62180ae39963eb3b5801950a4471585185870389deaa",
+  "source_experiment": "/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_friction8_20261028",
+  "source_run": "/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_friction8_20261028/partial_results/selected/walk-ground/best_1"
+}

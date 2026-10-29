@@ -1,0 +1,23 @@
+{
+  "protocol": "Frozen Newton training interface vs current G1TrackingPolicyRunner, DR/noise disabled",
+  "reference_frames": [
+    0,
+    100,
+    200,
+    300,
+    398
+  ],
+  "max_abs_error": {
+    "observation": 1.8649734556674957e-07,
+    "action": 8.940696716308594e-07,
+    "target": 4.172325134277344e-07
+  },
+  "random_observation_samples": 256,
+  "eager_cpu_vs_jit_cpu_max_abs_error": 0.0,
+  "encoder_bias_applied_only_to_simulated_sensor_readings": true,
+  "saved_training_pd_gains_verified": true,
+  "hardware_validated": false,
+  "policy_sha256": "5bc75d35de306b84f80b720e60667574802747287659762de1d8b28274888797",
+  "checkpoint_sha256": "e420739a682a71994dd1877079750cfbc7700ecbfa1bbbcab1a9f7493f38f570",
+  "deployment_tracking_sha256": "b54834ca870ecf9e5d449109532d961862d034db4476ba8ff67c7b8f6becded1"
+}

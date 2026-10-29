@@ -1,0 +1,71 @@
+{
+  "packages": [
+    {
+      "directory": "dr_shared/rank1_s49_i25000",
+      "original_selection": {
+        "clean": {
+          "full_clip_success": 64,
+          "trials": 64
+        },
+        "robust": {
+          "full_clip_success": 64,
+          "trials": 64
+        }
+      },
+      "policy_sha256": "65847aecd1fc38e2d4640cc4520935af9029cc6d0b8645377d01189317726b4c",
+      "checkpoint_sha256": "8033553c705f92eafad70f7f756b31ba54815fc6b32afbc3ef83119001336076"
+    },
+    {
+      "directory": "dr_shared/rank2_s47_i29999",
+      "original_selection": {
+        "clean": {
+          "full_clip_success": 64,
+          "trials": 64
+        },
+        "robust": {
+          "full_clip_success": 64,
+          "trials": 64
+        }
+      },
+      "policy_sha256": "5bc75d35de306b84f80b720e60667574802747287659762de1d8b28274888797",
+      "checkpoint_sha256": "e420739a682a71994dd1877079750cfbc7700ecbfa1bbbcab1a9f7493f38f570"
+    },
+    {
+      "directory": "dr_ground/rank1_s49_i29999",
+      "original_selection": {
+        "clean": {
+          "full_clip_success": 64,
+          "trials": 64
+        },
+        "robust": {
+          "full_clip_success": 64,
+          "trials": 64
+        }
+      },
+      "policy_sha256": "11b1b3b3f4c8afdd9e5af53c859d6cb01b42fff7fe9b637a95aba13caf72075e",
+      "checkpoint_sha256": "620a5c24a6bddc3e9a4a5f68693a0796b557956828336cb376dfdd1115655dc9"
+    },
+    {
+      "directory": "dr_ground/rank2_s45_i25000",
+      "original_selection": {
+        "clean": {
+          "full_clip_success": 64,
+          "trials": 64
+        },
+        "robust": {
+          "full_clip_success": 64,
+          "trials": 64
+        }
+      },
+      "policy_sha256": "26bbc6da1accefe9af3cfe1bc599538bb8d11b23866461d305086cb8e72af473",
+      "checkpoint_sha256": "890e61967f1c2c0e62c444ec8572a2499e566ed9da9d431a9e3a36f1552c568f"
+    }
+  ],
+  "native_mujoco_completed": 964,
+  "numerical_failures": 0,
+  "raw_evaluation_count": 964,
+  "nominal_trajectory_count": 4,
+  "verified_videos": 4,
+  "hardware_validated": false,
+  "unchanged_deployment_code": true
+}

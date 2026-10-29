@@ -1,0 +1,78 @@
+[
+  {
+    "file": "videos/dr_ground/rank1_s49_i29999/native_mujoco_vs_reference.mp4",
+    "sha256": "e4454e5068e314dd71284a3e71c58fddfe9a49d902a60afa68e60f7c4aa0c601",
+    "ffprobe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "250"
+        }
+      ],
+      "format": {
+        "duration": "10.000000"
+      }
+    }
+  },
+  {
+    "file": "videos/dr_ground/rank2_s45_i25000/native_mujoco_vs_reference.mp4",
+    "sha256": "0f645a3011ea6b304fa7e41a516dcaa502c3326ccfe7d87e32739418bac8a235",
+    "ffprobe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "250"
+        }
+      ],
+      "format": {
+        "duration": "10.000000"
+      }
+    }
+  },
+  {
+    "file": "videos/dr_shared/rank1_s49_i25000/native_mujoco_vs_reference.mp4",
+    "sha256": "ed0223b7524e8dbfa74cf6cc2576ca70609691541afc1a969394551f5dcf8924",
+    "ffprobe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "250"
+        }
+      ],
+      "format": {
+        "duration": "10.000000"
+      }
+    }
+  },
+  {
+    "file": "videos/dr_shared/rank2_s47_i29999/native_mujoco_vs_reference.mp4",
+    "sha256": "65fd5def07b639ce9afc6f97622ac1e3e35166ec861baad5fa925b3465ad2108",
+    "ffprobe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "250"
+        }
+      ],
+      "format": {
+        "duration": "10.000000"
+      }
+    }
+  }
+]

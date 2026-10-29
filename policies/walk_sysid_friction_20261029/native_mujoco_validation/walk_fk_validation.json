@@ -1,0 +1,12 @@
+{
+  "frames": [
+    0,
+    100,
+    200,
+    300,
+    399
+  ],
+  "max_body_position_error_m": 7.153285192298712e-07,
+  "model_sha256": "9affd2cb20d558cff60cbf443681dc4896de25e36d395a44ed66d0015e027291",
+  "motion_sha256": "b77c3c27ca524d88337e4467c3ab9de6b0c2a94f76f69a50a93f98cd8e6c00f3"
+}
