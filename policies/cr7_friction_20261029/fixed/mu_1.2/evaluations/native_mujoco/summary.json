@@ -1,0 +1,915 @@
+{
+  "directory": "fixed/mu_1.2",
+  "training_seed": 42,
+  "iteration": 25000,
+  "mode": "implicit200",
+  "checkpoint_sha256": "4db2a8278e1e5bac6b11a11e3c8542c17a18eaba74c165d66d769019b0cc20f3",
+  "suites": {
+    "nominal": {
+      "expected": 1,
+      "completed": 1,
+      "clip_valid": 0,
+      "clip_invalid": 1,
+      "hold_invalid": 1,
+      "clip_success": 0,
+      "clip_success_rate_valid_only": null,
+      "clip_and_hold_success": 0,
+      "clip_and_hold_rate_valid_only": null,
+      "mean_body_error_m_successful_clips": null,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": null,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": null,
+      "failure_examples": [
+        {
+          "seed": 0,
+          "floor_friction": 1.0,
+          "fall_time_s": null,
+          "numerical_failure": {
+            "time_s": 3.23,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        }
+      ]
+    },
+    "clean": {
+      "expected": 64,
+      "completed": 64,
+      "clip_valid": 54,
+      "clip_invalid": 10,
+      "hold_invalid": 29,
+      "clip_success": 22,
+      "clip_success_rate_valid_only": 0.4074074074074074,
+      "clip_and_hold_success": 22,
+      "clip_and_hold_rate_valid_only": 0.6285714285714286,
+      "mean_body_error_m_successful_clips": 0.08109534261838322,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 66.65448713659819,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.08930081012404356,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 1.0,
+          "fall_time_s": 4.0,
+          "numerical_failure": {
+            "time_s": 5.745,
+            "raw_mujoco_clock_s": 5.7449999999999,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.82,
+          "numerical_failure": {
+            "time_s": 6.185,
+            "raw_mujoco_clock_s": 6.18499999999989,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.86,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.92,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.9,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.1,
+          "numerical_failure": {
+            "time_s": 5.779999999999999,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.2600000000000002,
+          "numerical_failure": {
+            "time_s": 6.565,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        }
+      ]
+    },
+    "mu_0.5": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 12,
+      "clip_invalid": 4,
+      "hold_invalid": 8,
+      "clip_success": 1,
+      "clip_success_rate_valid_only": 0.08333333333333333,
+      "clip_and_hold_success": 1,
+      "clip_and_hold_rate_valid_only": 0.125,
+      "mean_body_error_m_successful_clips": 0.07619180313373601,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 78.53331882321793,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.09417197612740667,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 0.5,
+          "fall_time_s": 2.82,
+          "numerical_failure": {
+            "time_s": 5.92,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.18,
+          "numerical_failure": {
+            "time_s": 5.945,
+            "raw_mujoco_clock_s": 5.9449999999998955,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.5,
+          "fall_time_s": 2.9,
+          "numerical_failure": {
+            "time_s": 5.45,
+            "raw_mujoco_clock_s": 5.449999999999906,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.5,
+          "fall_time_s": 2.88,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 0.5,
+          "fall_time_s": 2.96,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.5,
+          "fall_time_s": 2.92,
+          "numerical_failure": {
+            "time_s": 7.185,
+            "raw_mujoco_clock_s": 7.184999999999869,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.5,
+          "fall_time_s": 2.9,
+          "numerical_failure": {
+            "time_s": 7.205,
+            "raw_mujoco_clock_s": 7.204999999999869,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_0.6": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 15,
+      "clip_invalid": 1,
+      "hold_invalid": 5,
+      "clip_success": 6,
+      "clip_success_rate_valid_only": 0.4,
+      "clip_and_hold_success": 6,
+      "clip_and_hold_rate_valid_only": 0.5454545454545454,
+      "mean_body_error_m_successful_clips": 0.08485717114637047,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 74.08779068193738,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.12001258816943336,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.6,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.6,
+          "fall_time_s": 2.82,
+          "numerical_failure": {
+            "time_s": 6.225,
+            "raw_mujoco_clock_s": 6.2249999999998895,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.6,
+          "fall_time_s": 2.9,
+          "numerical_failure": {
+            "time_s": 6.625,
+            "raw_mujoco_clock_s": 6.624999999999881,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 0.6,
+          "fall_time_s": 2.96,
+          "numerical_failure": {
+            "time_s": 7.39,
+            "raw_mujoco_clock_s": 7.389999999999865,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.6,
+          "fall_time_s": 2.88,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.6,
+          "fall_time_s": 2.96,
+          "numerical_failure": {
+            "time_s": 5.345,
+            "raw_mujoco_clock_s": 5.344999999999908,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6012,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.14,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_0.7": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 3,
+      "clip_success": 6,
+      "clip_success_rate_valid_only": 0.375,
+      "clip_and_hold_success": 6,
+      "clip_and_hold_rate_valid_only": 0.46153846153846156,
+      "mean_body_error_m_successful_clips": 0.083204171485132,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 63.61421990723957,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.1134663430347549,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.06,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.0,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.7,
+          "fall_time_s": 2.8000000000000003,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.7,
+          "fall_time_s": 2.88,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.0,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.7,
+          "fall_time_s": 2.94,
+          "numerical_failure": {
+            "time_s": 6.699999999999999,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.0,
+          "numerical_failure": {
+            "time_s": 7.245,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6012,
+          "floor_friction": 0.7,
+          "fall_time_s": 2.96,
+          "numerical_failure": {
+            "time_s": 7.38,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        }
+      ]
+    },
+    "mu_0.8": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 13,
+      "clip_invalid": 3,
+      "hold_invalid": 6,
+      "clip_success": 6,
+      "clip_success_rate_valid_only": 0.46153846153846156,
+      "clip_and_hold_success": 6,
+      "clip_and_hold_rate_valid_only": 0.6,
+      "mean_body_error_m_successful_clips": 0.08302108047547911,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 56.983734578089454,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.08598631674057541,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.14,
+          "numerical_failure": {
+            "time_s": 4.38,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.8,
+          "fall_time_s": 2.7600000000000002,
+          "numerical_failure": {
+            "time_s": 6.525,
+            "raw_mujoco_clock_s": 6.524999999999883,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.8,
+          "fall_time_s": 2.7800000000000002,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.12,
+          "numerical_failure": {
+            "time_s": 5.405,
+            "raw_mujoco_clock_s": 5.404999999999907,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.8,
+          "fall_time_s": 2.94,
+          "numerical_failure": {
+            "time_s": 5.745,
+            "raw_mujoco_clock_s": 5.7449999999999,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.8,
+          "fall_time_s": 2.92,
+          "numerical_failure": {
+            "time_s": 7.27,
+            "raw_mujoco_clock_s": 7.269999999999867,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.02,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 6.665,
+            "raw_mujoco_clock_s": 6.66499999999988,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        }
+      ]
+    },
+    "mu_0.9": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 15,
+      "clip_invalid": 1,
+      "hold_invalid": 7,
+      "clip_success": 7,
+      "clip_success_rate_valid_only": 0.4666666666666667,
+      "clip_and_hold_success": 7,
+      "clip_and_hold_rate_valid_only": 0.7777777777777778,
+      "mean_body_error_m_successful_clips": 0.08981798529079339,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 67.94295839056191,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.11579869040010948,
+      "failure_examples": [
+        {
+          "seed": 6002,
+          "floor_friction": 0.9,
+          "fall_time_s": 2.82,
+          "numerical_failure": {
+            "time_s": 6.825,
+            "raw_mujoco_clock_s": 6.824999999999877,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.9,
+          "fall_time_s": 2.82,
+          "numerical_failure": {
+            "time_s": 6.925,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.2600000000000002,
+          "numerical_failure": {
+            "time_s": 6.385,
+            "raw_mujoco_clock_s": 6.384999999999886,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.02,
+          "numerical_failure": {
+            "time_s": 7.205,
+            "raw_mujoco_clock_s": 7.204999999999869,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.9,
+          "fall_time_s": 2.92,
+          "numerical_failure": {
+            "time_s": 5.325,
+            "raw_mujoco_clock_s": 5.324999999999909,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.02,
+          "numerical_failure": {
+            "time_s": 6.06,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.06,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 0.9,
+          "fall_time_s": 2.96,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_1.1": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 14,
+      "clip_invalid": 2,
+      "hold_invalid": 9,
+      "clip_success": 6,
+      "clip_success_rate_valid_only": 0.42857142857142855,
+      "clip_and_hold_success": 6,
+      "clip_and_hold_rate_valid_only": 0.8571428571428571,
+      "mean_body_error_m_successful_clips": 0.0804045212774033,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 62.634630712578506,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.09201571811742454,
+      "failure_examples": [
+        {
+          "seed": 6002,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.82,
+          "numerical_failure": {
+            "time_s": 5.985,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.9,
+          "numerical_failure": {
+            "time_s": 5.165,
+            "raw_mujoco_clock_s": 5.164999999999912,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.02,
+          "numerical_failure": {
+            "time_s": 7.295,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.94,
+          "numerical_failure": {
+            "time_s": 6.185,
+            "raw_mujoco_clock_s": 6.18499999999989,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.88,
+          "numerical_failure": {
+            "time_s": 6.245,
+            "raw_mujoco_clock_s": 6.244999999999889,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.02,
+          "numerical_failure": {
+            "time_s": 5.17,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.16,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6010,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.06,
+          "numerical_failure": {
+            "time_s": 6.75,
+            "raw_mujoco_clock_s": 6.749999999999878,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        }
+      ]
+    },
+    "mu_1.2": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 13,
+      "clip_invalid": 3,
+      "hold_invalid": 5,
+      "clip_success": 8,
+      "clip_success_rate_valid_only": 0.6153846153846154,
+      "clip_and_hold_success": 8,
+      "clip_and_hold_rate_valid_only": 0.7272727272727273,
+      "mean_body_error_m_successful_clips": 0.08314227781942568,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 72.41617041466611,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.0865532254647956,
+      "failure_examples": [
+        {
+          "seed": 6002,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.82,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.84,
+          "numerical_failure": {
+            "time_s": 6.125,
+            "raw_mujoco_clock_s": 6.124999999999892,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.98,
+          "numerical_failure": {
+            "time_s": 5.35,
+            "raw_mujoco_clock_s": 5.349999999999908,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.96,
+          "numerical_failure": {
+            "time_s": 7.665,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.92,
+          "numerical_failure": {
+            "time_s": 5.699999999999999,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6010,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.2,
+          "fall_time_s": 1.28,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.96,
+          "numerical_failure": {
+            "time_s": 5.76,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        }
+      ]
+    },
+    "mu_1.3": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 15,
+      "clip_invalid": 1,
+      "hold_invalid": 4,
+      "clip_success": 8,
+      "clip_success_rate_valid_only": 0.5333333333333333,
+      "clip_and_hold_success": 8,
+      "clip_and_hold_rate_valid_only": 0.6666666666666666,
+      "mean_body_error_m_successful_clips": 0.08019324662141834,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 64.86679868690587,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.08539787010278042,
+      "failure_examples": [
+        {
+          "seed": 6002,
+          "floor_friction": 1.3,
+          "fall_time_s": 2.8000000000000003,
+          "numerical_failure": {
+            "time_s": 5.965,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.0,
+          "numerical_failure": {
+            "time_s": 7.1450000000000005,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 6.81,
+            "raw_mujoco_clock_s": 6.809999999999877,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.06,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 5.285,
+            "raw_mujoco_clock_s": 5.2849999999999095,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.42,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.3,
+          "fall_time_s": 1.34,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.0,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_1.5": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 14,
+      "clip_invalid": 2,
+      "hold_invalid": 2,
+      "clip_success": 12,
+      "clip_success_rate_valid_only": 0.8571428571428571,
+      "clip_and_hold_success": 12,
+      "clip_and_hold_rate_valid_only": 0.8571428571428571,
+      "mean_body_error_m_successful_clips": 0.0808360017680536,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 60.462865604222806,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.08028365539599866,
+      "failure_examples": [
+        {
+          "seed": 6002,
+          "floor_friction": 1.5,
+          "fall_time_s": 2.82,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 5.63,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.06,
+          "numerical_failure": {
+            "time_s": 5.659999999999999,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.5,
+          "fall_time_s": 1.28,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "friction_only_dr": {
+      "expected": 32,
+      "completed": 32,
+      "clip_valid": 26,
+      "clip_invalid": 6,
+      "hold_invalid": 10,
+      "clip_success": 9,
+      "clip_success_rate_valid_only": 0.34615384615384615,
+      "clip_and_hold_success": 9,
+      "clip_and_hold_rate_valid_only": 0.4090909090909091,
+      "mean_body_error_m_successful_clips": 0.08342656605396624,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 65.54433256683905,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.09310247789091931,
+      "failure_examples": [
+        {
+          "seed": 7002,
+          "floor_friction": 1.4779485556260432,
+          "fall_time_s": 3.02,
+          "numerical_failure": {
+            "time_s": 5.705,
+            "raw_mujoco_clock_s": 5.704999999999901,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 7003,
+          "floor_friction": 1.3618605102492287,
+          "fall_time_s": 2.94,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7005,
+          "floor_friction": 0.9940885708662107,
+          "fall_time_s": 2.86,
+          "numerical_failure": {
+            "time_s": 5.585,
+            "raw_mujoco_clock_s": 5.584999999999903,
+            "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+          }
+        },
+        {
+          "seed": 7006,
+          "floor_friction": 0.6890129572368938,
+          "fall_time_s": 2.94,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7007,
+          "floor_friction": 1.2732392759978017,
+          "fall_time_s": 3.0,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7008,
+          "floor_friction": 0.8429513446286229,
+          "fall_time_s": 2.96,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7009,
+          "floor_friction": 0.9333428696905008,
+          "fall_time_s": 3.06,
+          "numerical_failure": {
+            "time_s": 4.02,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        },
+        {
+          "seed": 7010,
+          "floor_friction": 1.043918795978879,
+          "fall_time_s": 2.9,
+          "numerical_failure": {
+            "time_s": 7.62,
+            "raw_mujoco_clock_s": 0.005,
+            "error": "MuJoCo reset its simulation clock"
+          }
+        }
+      ]
+    }
+  }
+}

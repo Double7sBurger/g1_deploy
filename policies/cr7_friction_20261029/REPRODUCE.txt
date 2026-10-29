@@ -1,0 +1,10 @@
+本机导出和接口校验复现（需要原冻结训练目录及 pinned venv）：
+python /home/henry/workspace/isaac-spinning-up/logs/osmo/newton_allfive_fixedfriction_20261028/run_local.py /home/henry/workspace/isaac-spinning-up/logs/osmo/fall_only_review_20261029/deploy_export/export_verify.py --mode old_implicit200
+python /home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_friction8_20261028/run_local.py /home/henry/workspace/isaac-spinning-up/logs/osmo/fall_only_review_20261029/deploy_export/export_verify.py --mode old_explicit400
+
+原始训练命令：各包 training/experiment.json 的 command 数组。
+原始最终配置：training/params/env.yaml 与 agent.yaml。
+匹配的项目 Python 源码：training_sources/old_implicit200.tar.gz、old_explicit400.tar.gz。
+这些源码包不包含 Isaac Lab、CUDA 依赖、USD 资产；版本/原始路径见 experiment.json 和 source_manifest.json。
+完整 fall-only 重评命令与协议：/home/henry/workspace/isaac-spinning-up/logs/osmo/fall_only_review_20261029/REPRODUCE.txt。
+各包 evaluations 保存本候选筛选与已有独立验证的原始评分；未运行真机。

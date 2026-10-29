@@ -1,0 +1,134 @@
+{
+  "measurement": "Lowest point of each physical foot collision box relative to flat z=0 floor; minimum of the two feet",
+  "scope": "Nominal exact-reference initial state, floor friction 1.0; not an additional success gate",
+  "window_s": [
+    1.72,
+    2.9
+  ],
+  "reference": {
+    "peak_both_feet_clearance_m": 0.4851696630471808,
+    "both_feet_above_2cm_duration_s": 0.6
+  },
+  "candidates": [
+    {
+      "directory": "fixed/mu_0.5",
+      "peak_both_feet_clearance_m": 0.15692890032128048,
+      "both_feet_above_2cm_duration_s": 0.36,
+      "clip_mean_body_error_cm": 42.82778435849111,
+      "clip_peak_body_error_cm": 74.25024737981958,
+      "clip_and_hold_success": false
+    },
+    {
+      "directory": "fixed/mu_0.6",
+      "peak_both_feet_clearance_m": 0.10676142550538098,
+      "both_feet_above_2cm_duration_s": 0.28,
+      "clip_mean_body_error_cm": 7.571712343286022,
+      "clip_peak_body_error_cm": 38.94724001433184,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "fixed/mu_0.7",
+      "peak_both_feet_clearance_m": 0.4162973583558784,
+      "both_feet_above_2cm_duration_s": 0.52,
+      "clip_mean_body_error_cm": 4.789444472757521,
+      "clip_peak_body_error_cm": 12.30222030061424,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "fixed/mu_0.8",
+      "peak_both_feet_clearance_m": 0.4030720572138889,
+      "both_feet_above_2cm_duration_s": 0.54,
+      "clip_mean_body_error_cm": 4.2792447699637535,
+      "clip_peak_body_error_cm": 13.148561698175639,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "fixed/mu_0.9",
+      "peak_both_feet_clearance_m": 0.19130577370159244,
+      "both_feet_above_2cm_duration_s": 0.36,
+      "clip_mean_body_error_cm": 8.782862171859138,
+      "clip_peak_body_error_cm": 37.672021810374254,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "fixed/mu_1.0",
+      "peak_both_feet_clearance_m": 0.22201271488433255,
+      "both_feet_above_2cm_duration_s": 0.46,
+      "clip_mean_body_error_cm": 7.94359919467988,
+      "clip_peak_body_error_cm": 33.13967628467459,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "fixed/mu_1.1",
+      "peak_both_feet_clearance_m": 0.05346781383811764,
+      "both_feet_above_2cm_duration_s": 0.14,
+      "clip_mean_body_error_cm": 7.541734328968213,
+      "clip_peak_body_error_cm": 48.9343513403354,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "fixed/mu_1.2",
+      "peak_both_feet_clearance_m": 0.11246271989502432,
+      "both_feet_above_2cm_duration_s": 0.26,
+      "clip_mean_body_error_cm": 20.73150813440183,
+      "clip_peak_body_error_cm": 704.7830715108271,
+      "clip_and_hold_success": false
+    },
+    {
+      "directory": "fixed/mu_1.3",
+      "peak_both_feet_clearance_m": 0.4749256629543614,
+      "both_feet_above_2cm_duration_s": 0.56,
+      "clip_mean_body_error_cm": 6.312939471895302,
+      "clip_peak_body_error_cm": 19.22296107668547,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "dr_shared/rank1_s45_i20000",
+      "peak_both_feet_clearance_m": 0.08506695297904793,
+      "both_feet_above_2cm_duration_s": 0.24,
+      "clip_mean_body_error_cm": 7.82803237155575,
+      "clip_peak_body_error_cm": 41.51001405251678,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "dr_shared/rank2_s43_i25000",
+      "peak_both_feet_clearance_m": 0.1389855931396993,
+      "both_feet_above_2cm_duration_s": 0.3,
+      "clip_mean_body_error_cm": 7.990514628908271,
+      "clip_peak_body_error_cm": 40.45011239615839,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "dr_shared/rank3_s47_i29999",
+      "peak_both_feet_clearance_m": 0.1101829419917888,
+      "both_feet_above_2cm_duration_s": 0.26,
+      "clip_mean_body_error_cm": 7.567548568877201,
+      "clip_peak_body_error_cm": 45.60810964149201,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "dr_ground/rank1_s48_i25000",
+      "peak_both_feet_clearance_m": 0.08389218252773921,
+      "both_feet_above_2cm_duration_s": 0.3,
+      "clip_mean_body_error_cm": 9.756095879595012,
+      "clip_peak_body_error_cm": 43.32922054103075,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "dr_ground/rank2_s42_i29999",
+      "peak_both_feet_clearance_m": 0.028813021120183323,
+      "both_feet_above_2cm_duration_s": 0.08,
+      "clip_mean_body_error_cm": 9.86879467740926,
+      "clip_peak_body_error_cm": 47.022605142439,
+      "clip_and_hold_success": true
+    },
+    {
+      "directory": "dr_ground/rank3_s48_i20000",
+      "peak_both_feet_clearance_m": 0.0815225662953911,
+      "both_feet_above_2cm_duration_s": 0.24,
+      "clip_mean_body_error_cm": 41.56811676216675,
+      "clip_peak_body_error_cm": 72.17992474881176,
+      "clip_and_hold_success": false
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "candidate": {
+    "id": "old_implicit200__cr7-mu08__s43__29999",
+    "mode": "old_implicit200",
+    "arm": "cr7-mu08",
+    "training_seed": 43,
+    "iteration": 29999,
+    "checkpoint": "/home/henry/workspace/isaac-spinning-up/logs/osmo/fall_only_review_20261029/inputs/old_implicit200/cr7-mu08/s43/logs/rsl_rl/g1_motion_tracking/2026-10-28_15-17-13_cr7-mu08_s43/model_29999.pt",
+    "checkpoint_sha256": "a6115758af568e15536d962b5bfffd6ec3ab9e625533603ebb8a1891cdd401b3",
+    "reference": "/home/henry/workspace/isaac-spinning-up/logs/osmo/fall_only_review_20261029/inputs/old_implicit200/cr7-mu08/s43/reference.npz",
+    "source_run": "/home/henry/workspace/isaac-spinning-up/logs/osmo/fall_only_review_20261029/inputs/old_implicit200/cr7-mu08/s43",
+    "source_experiment": "/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_allfive_fixedfriction_20261028",
+    "sysid_sha256": "fbc6b33b6ae25bdc24de62180ae39963eb3b5801950a4471585185870389deaa",
+    "motion_sha256": "1e52aa209c1765e61f0590ddb77d9c6fe0f09cb372395665306034acd1d4fe9a",
+    "original_success_rates": {
+      "clean": 0.0,
+      "robust": 0.015625
+    }
+  },
+  "selection_seeds": [
+    2026,
+    2027
+  ],
+  "holdout_seeds": [
+    2031,
+    2032
+  ],
+  "results": [
+    {
+      "candidate": "old_implicit200__cr7-mu08__s43__29999",
+      "suite": "clean",
+      "seed": 2031,
+      "exit_code": 0,
+      "seconds": 42.11496776062995,
+      "evaluator_sha256": "e618de20d59a1a0a249eec64925e00ef6f0ac4cac19bc8821194daea6736b04c",
+      "success": 32,
+      "trials": 32,
+      "body_error_m": 0.04676263406872749
+    },
+    {
+      "candidate": "old_implicit200__cr7-mu08__s43__29999",
+      "suite": "clean",
+      "seed": 2032,
+      "exit_code": 0,
+      "seconds": 42.92724841181189,
+      "evaluator_sha256": "e618de20d59a1a0a249eec64925e00ef6f0ac4cac19bc8821194daea6736b04c",
+      "success": 32,
+      "trials": 32,
+      "body_error_m": 0.046907294541597366
+    },
+    {
+      "candidate": "old_implicit200__cr7-mu08__s43__29999",
+      "suite": "robust",
+      "seed": 2031,
+      "exit_code": 0,
+      "seconds": 43.827212093863636,
+      "evaluator_sha256": "e618de20d59a1a0a249eec64925e00ef6f0ac4cac19bc8821194daea6736b04c",
+      "success": 32,
+      "trials": 32,
+      "body_error_m": 0.04913359880447388
+    },
+    {
+      "candidate": "old_implicit200__cr7-mu08__s43__29999",
+      "suite": "robust",
+      "seed": 2032,
+      "exit_code": 0,
+      "seconds": 43.69617694430053,
+      "evaluator_sha256": "e618de20d59a1a0a249eec64925e00ef6f0ac4cac19bc8821194daea6736b04c",
+      "success": 32,
+      "trials": 32,
+      "body_error_m": 0.05030691623687744
+    }
+  ],
+  "hardware_validated": false
+}

@@ -1,0 +1,18 @@
+{
+  "created_at": "2026-10-29T13:53:24.368066+08:00",
+  "bundles": 15,
+  "groups": {
+    "fixed": 9,
+    "shared_dr": 3,
+    "ground_dr": 3
+  },
+  "max_abs_interface_error": {
+    "observation": 1.3085082173347473e-07,
+    "action": 1.430511474609375e-06,
+    "target": 7.748603820800781e-07
+  },
+  "cpu_eager_jit_max_abs_error": 0.0,
+  "hardware_validated": false,
+  "deployment_code_changed": false,
+  "source_checkpoints_and_configs_sha256_verified": true
+}

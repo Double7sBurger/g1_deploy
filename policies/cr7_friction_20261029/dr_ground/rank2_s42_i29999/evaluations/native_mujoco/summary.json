@@ -1,0 +1,932 @@
+{
+  "directory": "dr_ground/rank2_s42_i29999",
+  "training_seed": 42,
+  "iteration": 29999,
+  "mode": "explicit400",
+  "checkpoint_sha256": "41f86ec60f58be3cdfc362bde354adc718018f21b74779178f9a1e68587ae977",
+  "suites": {
+    "nominal": {
+      "expected": 1,
+      "completed": 1,
+      "clip_valid": 1,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 1,
+      "clip_success_rate_valid_only": 1,
+      "clip_and_hold_success": 1,
+      "clip_and_hold_rate_valid_only": 1,
+      "mean_body_error_m_successful_clips": 0.09868794677409261,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 6.215054440947507,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.1371133414844965,
+      "failure_examples": []
+    },
+    "clean": {
+      "expected": 64,
+      "completed": 64,
+      "clip_valid": 51,
+      "clip_invalid": 13,
+      "hold_invalid": 24,
+      "clip_success": 14,
+      "clip_success_rate_valid_only": 0.27450980392156865,
+      "clip_and_hold_success": 14,
+      "clip_and_hold_rate_valid_only": 0.35,
+      "mean_body_error_m_successful_clips": 0.09175270333341412,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 31.148829714665442,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.11927064473263853,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.1,
+          "numerical_failure": {
+            "time_s": 5.88,
+            "raw_mujoco_clock_s": 5.880000000000219,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.3200000000000003,
+          "numerical_failure": {
+            "time_s": 5.62,
+            "raw_mujoco_clock_s": 5.620000000000179,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.2,
+          "numerical_failure": {
+            "time_s": 6.32,
+            "raw_mujoco_clock_s": 6.320000000000288,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.3000000000000003,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.06,
+          "numerical_failure": {
+            "time_s": 6.5600000000000005,
+            "raw_mujoco_clock_s": 6.560000000000326,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.2800000000000002,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6011,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_0.5": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 13,
+      "clip_invalid": 3,
+      "hold_invalid": 9,
+      "clip_success": 2,
+      "clip_success_rate_valid_only": 0.15384615384615385,
+      "clip_and_hold_success": 2,
+      "clip_and_hold_rate_valid_only": 0.2857142857142857,
+      "mean_body_error_m_successful_clips": 0.08877394466137833,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 24.94468968559085,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.12389769007413023,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.64,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.02,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.08,
+          "numerical_failure": {
+            "time_s": 7.36,
+            "raw_mujoco_clock_s": 7.360000000000451,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 6.34,
+            "raw_mujoco_clock_s": 6.340000000000291,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.24,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.0,
+          "numerical_failure": {
+            "time_s": 5.6000000000000005,
+            "raw_mujoco_clock_s": 5.6000000000001755,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6008,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 5.58,
+            "raw_mujoco_clock_s": 5.580000000000172,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.5,
+          "fall_time_s": 3.44,
+          "numerical_failure": {
+            "time_s": 6.0600000000000005,
+            "raw_mujoco_clock_s": 6.060000000000247,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "mu_0.6": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 15,
+      "clip_invalid": 1,
+      "hold_invalid": 8,
+      "clip_success": 3,
+      "clip_success_rate_valid_only": 0.2,
+      "clip_and_hold_success": 3,
+      "clip_and_hold_rate_valid_only": 0.375,
+      "mean_body_error_m_successful_clips": 0.09572550088632112,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 25.835472983357896,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.14222375733090625,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 5.5200000000000005,
+            "raw_mujoco_clock_s": 5.520000000000163,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.12,
+          "numerical_failure": {
+            "time_s": 6.88,
+            "raw_mujoco_clock_s": 6.880000000000376,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.04,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.6,
+          "fall_time_s": 2.98,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.14,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.2600000000000002,
+          "numerical_failure": {
+            "time_s": 6.0200000000000005,
+            "raw_mujoco_clock_s": 6.020000000000241,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6008,
+          "floor_friction": 0.6,
+          "fall_time_s": 2.98,
+          "numerical_failure": {
+            "time_s": 5.94,
+            "raw_mujoco_clock_s": 5.940000000000229,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.3200000000000003,
+          "numerical_failure": {
+            "time_s": 6.36,
+            "raw_mujoco_clock_s": 6.360000000000294,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "mu_0.7": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 15,
+      "clip_invalid": 1,
+      "hold_invalid": 4,
+      "clip_success": 6,
+      "clip_success_rate_valid_only": 0.4,
+      "clip_and_hold_success": 6,
+      "clip_and_hold_rate_valid_only": 0.5,
+      "mean_body_error_m_successful_clips": 0.09380793603371552,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 28.881434321651206,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.1377360814293547,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.0,
+          "numerical_failure": {
+            "time_s": 7.0,
+            "raw_mujoco_clock_s": 7.000000000000394,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.18,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.12,
+          "numerical_failure": {
+            "time_s": 5.94,
+            "raw_mujoco_clock_s": 5.940000000000229,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.24,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.36,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6012,
+          "floor_friction": 0.7,
+          "fall_time_s": 2.98,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.12,
+          "numerical_failure": {
+            "time_s": 6.0200000000000005,
+            "raw_mujoco_clock_s": 6.020000000000241,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "mu_0.8": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 4,
+      "clip_success": 5,
+      "clip_success_rate_valid_only": 0.3125,
+      "clip_and_hold_success": 5,
+      "clip_and_hold_rate_valid_only": 0.4166666666666667,
+      "mean_body_error_m_successful_clips": 0.09603495443989829,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 29.32407383577487,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.15336251809306523,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.24,
+          "numerical_failure": {
+            "time_s": 6.88,
+            "raw_mujoco_clock_s": 6.880000000000376,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.3200000000000003,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.08,
+          "numerical_failure": {
+            "time_s": 6.12,
+            "raw_mujoco_clock_s": 6.120000000000257,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6008,
+          "floor_friction": 0.8,
+          "fall_time_s": 4.04,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.06,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6011,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6012,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.0,
+          "numerical_failure": {
+            "time_s": 5.98,
+            "raw_mujoco_clock_s": 5.980000000000235,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "mu_0.9": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 11,
+      "clip_invalid": 5,
+      "hold_invalid": 12,
+      "clip_success": 2,
+      "clip_success_rate_valid_only": 0.18181818181818182,
+      "clip_and_hold_success": 2,
+      "clip_and_hold_rate_valid_only": 0.5,
+      "mean_body_error_m_successful_clips": 0.08147149299899634,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 13.831913734672282,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07791035756635997,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.3000000000000003,
+          "numerical_failure": {
+            "time_s": 5.54,
+            "raw_mujoco_clock_s": 5.540000000000166,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.44,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.12,
+          "numerical_failure": {
+            "time_s": 6.140000000000001,
+            "raw_mujoco_clock_s": 6.14000000000026,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.16,
+          "numerical_failure": {
+            "time_s": 7.0200000000000005,
+            "raw_mujoco_clock_s": 7.0200000000003975,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.44,
+          "numerical_failure": {
+            "time_s": 6.84,
+            "raw_mujoco_clock_s": 6.840000000000369,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.3000000000000003,
+          "numerical_failure": {
+            "time_s": 5.72,
+            "raw_mujoco_clock_s": 5.720000000000194,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.16,
+          "numerical_failure": {
+            "time_s": 5.62,
+            "raw_mujoco_clock_s": 5.620000000000179,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 0.9,
+          "fall_time_s": 4.3,
+          "numerical_failure": {
+            "time_s": 6.08,
+            "raw_mujoco_clock_s": 6.0800000000002505,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "mu_1.1": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 15,
+      "clip_invalid": 1,
+      "hold_invalid": 5,
+      "clip_success": 3,
+      "clip_success_rate_valid_only": 0.2,
+      "clip_and_hold_success": 3,
+      "clip_and_hold_rate_valid_only": 0.2727272727272727,
+      "mean_body_error_m_successful_clips": 0.09595812243207774,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 31.216636402068023,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.11540495406964514,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.42,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.2600000000000002,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.98,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.0,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.2,
+          "numerical_failure": {
+            "time_s": 5.6000000000000005,
+            "raw_mujoco_clock_s": 5.6000000000001755,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.18,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6010,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.14,
+          "numerical_failure": {
+            "time_s": 5.98,
+            "raw_mujoco_clock_s": 5.980000000000235,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "mu_1.2": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 14,
+      "clip_invalid": 2,
+      "hold_invalid": 9,
+      "clip_success": 1,
+      "clip_success_rate_valid_only": 0.07142857142857142,
+      "clip_and_hold_success": 1,
+      "clip_and_hold_rate_valid_only": 0.14285714285714285,
+      "mean_body_error_m_successful_clips": 0.0951575848106416,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 31.967392125222116,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.130332299613628,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.24,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.24,
+          "numerical_failure": {
+            "time_s": 6.48,
+            "raw_mujoco_clock_s": 6.480000000000313,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.04,
+          "numerical_failure": {
+            "time_s": 6.28,
+            "raw_mujoco_clock_s": 6.280000000000282,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.24,
+          "numerical_failure": {
+            "time_s": 6.54,
+            "raw_mujoco_clock_s": 6.5400000000003224,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.08,
+          "numerical_failure": {
+            "time_s": 5.72,
+            "raw_mujoco_clock_s": 5.720000000000194,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.2800000000000002,
+          "numerical_failure": {
+            "time_s": 7.9,
+            "raw_mujoco_clock_s": 7.900000000000535,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.3200000000000003,
+          "numerical_failure": {
+            "time_s": 6.5200000000000005,
+            "raw_mujoco_clock_s": 6.520000000000319,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6008,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.5,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_1.3": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 11,
+      "clip_invalid": 5,
+      "hold_invalid": 7,
+      "clip_success": 3,
+      "clip_success_rate_valid_only": 0.2727272727272727,
+      "clip_and_hold_success": 3,
+      "clip_and_hold_rate_valid_only": 0.3333333333333333,
+      "mean_body_error_m_successful_clips": 0.10032605930120403,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 26.589585302740424,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.10188805750357696,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 1.3,
+          "fall_time_s": 4.0200000000000005,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.12,
+          "numerical_failure": {
+            "time_s": 6.36,
+            "raw_mujoco_clock_s": 6.360000000000294,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.04,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.16,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.5,
+          "numerical_failure": {
+            "time_s": 5.76,
+            "raw_mujoco_clock_s": 5.7600000000002005,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.5,
+          "numerical_failure": {
+            "time_s": 5.82,
+            "raw_mujoco_clock_s": 5.82000000000021,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6006,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.2,
+          "numerical_failure": {
+            "time_s": 5.54,
+            "raw_mujoco_clock_s": 5.540000000000166,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.1,
+          "numerical_failure": {
+            "time_s": 5.68,
+            "raw_mujoco_clock_s": 5.680000000000188,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "mu_1.5": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 13,
+      "clip_invalid": 3,
+      "hold_invalid": 10,
+      "clip_success": 2,
+      "clip_success_rate_valid_only": 0.15384615384615385,
+      "clip_and_hold_success": 2,
+      "clip_and_hold_rate_valid_only": 0.3333333333333333,
+      "mean_body_error_m_successful_clips": 0.08975603683521566,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 21.125278851361724,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.0979233851672025,
+      "failure_examples": [
+        {
+          "seed": 6000,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.04,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6001,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.12,
+          "numerical_failure": {
+            "time_s": 7.36,
+            "raw_mujoco_clock_s": 7.360000000000451,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6002,
+          "floor_friction": 1.5,
+          "fall_time_s": 2.86,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.36,
+          "numerical_failure": {
+            "time_s": 6.26,
+            "raw_mujoco_clock_s": 6.260000000000279,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.22,
+          "numerical_failure": {
+            "time_s": 6.86,
+            "raw_mujoco_clock_s": 6.8600000000003725,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6005,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.84,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.42,
+          "numerical_failure": {
+            "time_s": 6.22,
+            "raw_mujoco_clock_s": 6.220000000000272,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 6008,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.3000000000000003,
+          "numerical_failure": {
+            "time_s": 7.0200000000000005,
+            "raw_mujoco_clock_s": 7.0200000000003975,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    },
+    "friction_only_dr": {
+      "expected": 32,
+      "completed": 32,
+      "clip_valid": 20,
+      "clip_invalid": 12,
+      "hold_invalid": 21,
+      "clip_success": 5,
+      "clip_success_rate_valid_only": 0.25,
+      "clip_and_hold_success": 5,
+      "clip_and_hold_rate_valid_only": 0.45454545454545453,
+      "mean_body_error_m_successful_clips": 0.08724835202535744,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 20.063824314684517,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.10333271764424191,
+      "failure_examples": [
+        {
+          "seed": 7000,
+          "floor_friction": 0.9255255023488655,
+          "fall_time_s": 3.02,
+          "numerical_failure": {
+            "time_s": 5.76,
+            "raw_mujoco_clock_s": 5.7600000000002005,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 7001,
+          "floor_friction": 1.4606370704684168,
+          "fall_time_s": 2.58,
+          "numerical_failure": {
+            "time_s": 6.5600000000000005,
+            "raw_mujoco_clock_s": 6.560000000000326,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 7002,
+          "floor_friction": 1.4779485556260432,
+          "fall_time_s": 3.52,
+          "numerical_failure": {
+            "time_s": 5.92,
+            "raw_mujoco_clock_s": 5.9200000000002255,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 7003,
+          "floor_friction": 1.3618605102492287,
+          "fall_time_s": 3.3200000000000003,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7004,
+          "floor_friction": 1.3036305293371127,
+          "fall_time_s": 3.04,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7005,
+          "floor_friction": 0.9940885708662107,
+          "fall_time_s": 3.16,
+          "numerical_failure": {
+            "time_s": 7.9,
+            "raw_mujoco_clock_s": 7.900000000000535,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 7006,
+          "floor_friction": 0.6890129572368938,
+          "fall_time_s": 3.36,
+          "numerical_failure": {
+            "time_s": 5.68,
+            "raw_mujoco_clock_s": 5.680000000000188,
+            "error": "Invalid tracking policy output"
+          }
+        },
+        {
+          "seed": 7007,
+          "floor_friction": 1.2732392759978017,
+          "fall_time_s": 3.1,
+          "numerical_failure": {
+            "time_s": 5.62,
+            "raw_mujoco_clock_s": 5.620000000000179,
+            "error": "Invalid tracking policy output"
+          }
+        }
+      ]
+    }
+  }
+}

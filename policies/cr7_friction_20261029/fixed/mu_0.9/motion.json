@@ -1,0 +1,209 @@
+{
+  "source_npz": "/home/henry/workspace/isaac-spinning-up/source/motion_tracking/data/motions/npz/g1_cr7.npz",
+  "source_npz_sha256": "78da2753a11a22bb6ca300e0b1df94a5dde7b5b4e3c67043f738233143ac2602",
+  "output_name": "g1_cr7_grounded",
+  "fps": 50,
+  "prepared_frames": 297,
+  "csv_frames": 298,
+  "already_includes_transitions_and_end_hold": true,
+  "flight_interval_video_s": [
+    1.96,
+    2.64
+  ],
+  "phase_annotation": "Manually inferred from the single jump; upstream data has no contact labels.",
+  "contact_clearance_m": 0.001,
+  "contact_geometry": "Union of official visual mesh and physical foot plate vertices.",
+  "root_xy_and_orientation_unchanged": true,
+  "upper_body_joints_unchanged": true,
+  "stance_position_solver_max_error_m": 4.237029327895593e-09,
+  "stance_orientation_solver_max_error_rad": 1.35565335636969e-08,
+  "max_abs_root_height_change_m": 0.13857858266123485,
+  "max_abs_leg_joint_change_deg": 26.14293569788462,
+  "joint_limit_excess_rad": 5.960464477539063e-08,
+  "max_solver_evaluations": 10,
+  "scope": "Vertical grounding and standing foot tilt correction with bounded leg IK; original horizontal motion retained. Dynamic feasibility is not established by IK.",
+  "verification": {
+    "reference": "g1_cr7_grounded",
+    "frames": 297,
+    "fps": 50,
+    "duration_s": 5.94,
+    "sha256": "1e52aa209c1765e61f0590ddb77d9c6fe0f09cb372395665306034acd1d4fe9a",
+    "stance_visual_sole_range_m": [
+      0.0009994859739356626,
+      0.0032356758253488105
+    ],
+    "all_visual_sole_min_m": 0.0009994859739356626,
+    "all_collision_sole_min_m": 0.0009997352367343976,
+    "stance_collision_sole_range_m": [
+      0.0009997352367343976,
+      0.0035289929647568247
+    ],
+    "flight_min_visual_clearance_m": 0.00807915778827853,
+    "peak_lower_foot_clearance_before_m": 0.4843043019684588,
+    "peak_lower_foot_clearance_after_m": 0.48430394410559496,
+    "joint_limit_excess_deg": 3.4150945850063755e-06,
+    "joint_speed_max_rad_s": 10.370871543884277,
+    "joint_speed_max_fraction_of_limit": 0.2802938255103859,
+    "joint_velocity_vs_position_derivative_max_error_rad_s": 0.0,
+    "root_xy_max_error_m": 1.4551915228366852e-11,
+    "root_orientation_max_error_rad": 8.419035848760529e-08,
+    "upper_body_joint_max_error_rad": 5.820766091346741e-11,
+    "samples": [
+      {
+        "time_s": 0.5,
+        "before_cm": [
+          10.804252845981845,
+          10.000717310398946
+        ],
+        "after_cm": [
+          0.09996520711538157,
+          0.10000293896842843
+        ]
+      },
+      {
+        "time_s": 1.0,
+        "before_cm": [
+          10.648232378753905,
+          10.262227138809633
+        ],
+        "after_cm": [
+          0.09997047743849768,
+          0.09999725590416203
+        ]
+      },
+      {
+        "time_s": 1.8,
+        "before_cm": [
+          0.7239633475763687,
+          1.2129268789270036
+        ],
+        "after_cm": [
+          0.10000531588102296,
+          0.10000384581661109
+        ]
+      },
+      {
+        "time_s": 2.38,
+        "before_cm": [
+          49.30900453034924,
+          48.43043019684588
+        ],
+        "after_cm": [
+          49.30900483895763,
+          48.430394410559494
+        ]
+      },
+      {
+        "time_s": 2.64,
+        "before_cm": [
+          8.299016019244693,
+          9.75870170630439
+        ],
+        "after_cm": [
+          0.32356758253488105,
+          0.2556278614652574
+        ]
+      },
+      {
+        "time_s": 3.0,
+        "before_cm": [
+          4.3664084436689325,
+          8.319383938800106
+        ],
+        "after_cm": [
+          0.09996385239257402,
+          0.09999787577953945
+        ]
+      },
+      {
+        "time_s": 4.0,
+        "before_cm": [
+          5.560851765626102,
+          7.069528597226912
+        ],
+        "after_cm": [
+          0.09999394036501463,
+          0.10000800836898055
+        ]
+      },
+      {
+        "time_s": 5.0,
+        "before_cm": [
+          0.2509011038152417,
+          0.2509011039866643
+        ],
+        "after_cm": [
+          0.09997955880540546,
+          0.09997653591316755
+        ]
+      }
+    ],
+    "kinematic_grounding_passed": true,
+    "dynamic_feasibility_verified": false,
+    "note": "Horizontal foot drift from the source is retained; contact intervals were inferred, not measured. This is an edited reference, not a trained rollout."
+  },
+  "joint_names": [
+    "left_hip_pitch_joint",
+    "left_hip_roll_joint",
+    "left_hip_yaw_joint",
+    "left_knee_joint",
+    "left_ankle_pitch_joint",
+    "left_ankle_roll_joint",
+    "right_hip_pitch_joint",
+    "right_hip_roll_joint",
+    "right_hip_yaw_joint",
+    "right_knee_joint",
+    "right_ankle_pitch_joint",
+    "right_ankle_roll_joint",
+    "waist_yaw_joint",
+    "waist_roll_joint",
+    "waist_pitch_joint",
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "left_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint"
+  ],
+  "body_names": [
+    "pelvis",
+    "left_hip_pitch_link",
+    "left_hip_roll_link",
+    "left_hip_yaw_link",
+    "left_knee_link",
+    "left_ankle_pitch_link",
+    "left_ankle_roll_link",
+    "right_hip_pitch_link",
+    "right_hip_roll_link",
+    "right_hip_yaw_link",
+    "right_knee_link",
+    "right_ankle_pitch_link",
+    "right_ankle_roll_link",
+    "waist_yaw_link",
+    "waist_roll_link",
+    "torso_link",
+    "left_shoulder_pitch_link",
+    "left_shoulder_roll_link",
+    "left_shoulder_yaw_link",
+    "left_elbow_link",
+    "left_wrist_roll_link",
+    "left_wrist_pitch_link",
+    "left_wrist_yaw_link",
+    "right_shoulder_pitch_link",
+    "right_shoulder_roll_link",
+    "right_shoulder_yaw_link",
+    "right_elbow_link",
+    "right_wrist_roll_link",
+    "right_wrist_pitch_link",
+    "right_wrist_yaw_link"
+  ],
+  "sha256": "1e52aa209c1765e61f0590ddb77d9c6fe0f09cb372395665306034acd1d4fe9a"
+}

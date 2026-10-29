@@ -1,0 +1,521 @@
+{
+  "description": "Effective per-joint offline fits under the reported support/model assumptions; not a hardware calibration or a simultaneously validated full-body parameter set.",
+  "selection": "Lowest training RMSE among 3 seeds; held-out validation was not used for selection.",
+  "backend": "PhysX / Isaac Sim 6.0.0.1",
+  "command_dt_s": 0.0025,
+  "waist": "Unexcited; omitted and left nominal",
+  "joints": {
+    "left_ankle_pitch": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.0025127395056188107,
+        "viscous_friction": 1.080622673034668,
+        "coulomb_friction": 0.7563964128494263,
+        "encoder_bias": -0.07988595962524414,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.004201597534120083,
+      "validation_rmse_rad": 0.002935767872259021,
+      "nominal_validation_rmse_rad": 0.0290168859064579,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/left_ankle_pitch_fit_s0_cpu/results.json",
+      "limitations": [
+        "接近搜索边界：encoder_bias, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_wrist_roll": {
+      "status": "dynamic_identification_not_established",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.059957921504974365,
+        "viscous_friction": 0.23875655233860016,
+        "coulomb_friction": 0.648144543170929,
+        "encoder_bias": -0.060260504484176636,
+        "delay_steps": 5.0
+      },
+      "fit_rmse_rad": 0.005995260551571846,
+      "validation_rmse_rad": 0.0022143516689538956,
+      "nominal_validation_rmse_rad": 0.01285543479025364,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_wrist_roll_s0/results.json",
+      "limitations": [
+        "拟合轨迹近乎静止：不能视为可靠动态辨识，不建议采用其动态参数",
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：armature",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_shoulder_yaw": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.05441063269972801,
+        "viscous_friction": 2.4211392402648926,
+        "coulomb_friction": 0.20753702521324158,
+        "encoder_bias": -0.07796972990036011,
+        "delay_steps": 12.0
+      },
+      "fit_rmse_rad": 0.0051040430553257465,
+      "validation_rmse_rad": 0.011528956703841686,
+      "nominal_validation_rmse_rad": 0.0164736770093441,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_shoulder_yaw_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：encoder_bias, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_wrist_yaw": {
+      "status": "effective_fixed_support_fit",
+      "seed": 1,
+      "parameters": {
+        "armature": 0.011377581395208836,
+        "viscous_friction": 0.005904337856918573,
+        "coulomb_friction": 0.4477747678756714,
+        "encoder_bias": -0.03595751151442528,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.004309012088924646,
+      "validation_rmse_rad": 0.0032273351680487394,
+      "nominal_validation_rmse_rad": 0.018548769876360893,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_wrist_yaw_s1/results.json",
+      "limitations": [
+        "接近搜索边界：viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_hip_roll": {
+      "status": "effective_fixed_support_fit",
+      "seed": 1,
+      "parameters": {
+        "armature": 0.18725048005580902,
+        "viscous_friction": 0.031900662928819656,
+        "coulomb_friction": 0.9706098437309265,
+        "encoder_bias": 0.0217325109988451,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.004742803517729044,
+      "validation_rmse_rad": 0.0037652291357517242,
+      "nominal_validation_rmse_rad": 0.009071552194654942,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_hip_roll_s1/results.json",
+      "limitations": [
+        "接近搜索边界：viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_shoulder_yaw": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.0020025041885674,
+        "viscous_friction": 1.5716220140457153,
+        "coulomb_friction": 0.3251378536224365,
+        "encoder_bias": 0.07675174623727798,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.00435685133561492,
+      "validation_rmse_rad": 0.0030179903842508793,
+      "nominal_validation_rmse_rad": 0.011243893764913082,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_shoulder_yaw_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_wrist_yaw": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.00819659885019064,
+        "viscous_friction": 0.008327639661729336,
+        "coulomb_friction": 0.170045405626297,
+        "encoder_bias": 0.07943510264158249,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.001771285431459546,
+      "validation_rmse_rad": 0.002184860408306122,
+      "nominal_validation_rmse_rad": 0.007821309380233288,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_wrist_yaw_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：viscous_friction, encoder_bias, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_ankle_pitch": {
+      "status": "effective_fixed_support_fit",
+      "seed": 2,
+      "parameters": {
+        "armature": 0.023768026381731033,
+        "viscous_friction": 0.40319567918777466,
+        "coulomb_friction": 0.8918449878692627,
+        "encoder_bias": -0.07985977828502655,
+        "delay_steps": 2.0
+      },
+      "fit_rmse_rad": 0.0063990396447479725,
+      "validation_rmse_rad": 0.008641598746180534,
+      "nominal_validation_rmse_rad": 0.01980043202638626,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_ankle_pitch_s2/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：encoder_bias",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_wrist_pitch": {
+      "status": "effective_fixed_support_fit",
+      "seed": 1,
+      "parameters": {
+        "armature": 0.013238570652902126,
+        "viscous_friction": 0.00822041928768158,
+        "coulomb_friction": 0.16726845502853394,
+        "encoder_bias": 0.010227520018815994,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.0012705068802461028,
+      "validation_rmse_rad": 0.0022325050085783005,
+      "nominal_validation_rmse_rad": 0.00607353774830699,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_wrist_pitch_s1/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_shoulder_roll": {
+      "status": "effective_fixed_support_fit",
+      "seed": 1,
+      "parameters": {
+        "armature": 0.004632352385669947,
+        "viscous_friction": 0.004046067129820585,
+        "coulomb_friction": 0.5020133852958679,
+        "encoder_bias": -0.07318787276744843,
+        "delay_steps": 4.0
+      },
+      "fit_rmse_rad": 0.01193542405962944,
+      "validation_rmse_rad": 0.009121269918978214,
+      "nominal_validation_rmse_rad": 0.04896371439099312,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_shoulder_roll_s1/results.json",
+      "limitations": [
+        "接近搜索边界：viscous_friction",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_hip_pitch": {
+      "status": "provisional_support_motion",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.03637790307402611,
+        "viscous_friction": 0.004299964290112257,
+        "coulomb_friction": 1.0146994590759277,
+        "encoder_bias": -0.019970545545220375,
+        "delay_steps": 1.0
+      },
+      "fit_rmse_rad": 0.00812483485788107,
+      "validation_rmse_rad": 0.007036313880234957,
+      "nominal_validation_rmse_rad": 0.025626666843891144,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_hip_pitch_s0/results.json",
+      "limitations": [
+        "支撑运动明显：固定 torso 结果仅为暂定，不认证为电机真实参数",
+        "接近搜索边界：viscous_friction",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_hip_pitch": {
+      "status": "provisional_support_motion",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.06946612149477005,
+        "viscous_friction": 0.19504062831401825,
+        "coulomb_friction": 1.096095085144043,
+        "encoder_bias": 0.0021811597980558872,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.008150985464453697,
+      "validation_rmse_rad": 0.006198072340339422,
+      "nominal_validation_rmse_rad": 0.026766221970319748,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_hip_pitch_s0/results.json",
+      "limitations": [
+        "支撑运动明显：固定 torso 结果仅为暂定，不认证为电机真实参数",
+        "接近搜索边界：delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_ankle_roll": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.0017297174781560898,
+        "viscous_friction": 0.004962443839758635,
+        "coulomb_friction": 0.4277995228767395,
+        "encoder_bias": 0.014997076243162155,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.007734986487776041,
+      "validation_rmse_rad": 0.007619793526828289,
+      "nominal_validation_rmse_rad": 0.012717586010694504,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_ankle_roll_s0/results.json",
+      "limitations": [
+        "接近搜索边界：viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_elbow": {
+      "status": "effective_fixed_support_fit",
+      "seed": 2,
+      "parameters": {
+        "armature": 0.0004604118876159191,
+        "viscous_friction": 0.02924695797264576,
+        "coulomb_friction": 0.31991907954216003,
+        "encoder_bias": -0.020196352154016495,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.004046988673508167,
+      "validation_rmse_rad": 0.0031574233435094357,
+      "nominal_validation_rmse_rad": 0.010950175113976002,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_elbow_s2/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：armature, viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_wrist_pitch": {
+      "status": "effective_fixed_support_fit",
+      "seed": 1,
+      "parameters": {
+        "armature": 0.008772706612944603,
+        "viscous_friction": 0.11168577522039413,
+        "coulomb_friction": 0.1838197410106659,
+        "encoder_bias": -0.03349507972598076,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.0016049406258389354,
+      "validation_rmse_rad": 0.001979905879124999,
+      "nominal_validation_rmse_rad": 0.0077946302480995655,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_wrist_pitch_s1/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_wrist_roll": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.03043246455490589,
+        "viscous_friction": 2.292952060699463,
+        "coulomb_friction": 0.6202861070632935,
+        "encoder_bias": 0.02465813234448433,
+        "delay_steps": 9.0
+      },
+      "fit_rmse_rad": 0.004696403630077839,
+      "validation_rmse_rad": 0.0036357503850013018,
+      "nominal_validation_rmse_rad": 0.013319794088602066,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_wrist_roll_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_shoulder_pitch": {
+      "status": "effective_fixed_support_fit",
+      "seed": 1,
+      "parameters": {
+        "armature": 0.002192540792748332,
+        "viscous_friction": 2.584364414215088,
+        "coulomb_friction": 0.1357826292514801,
+        "encoder_bias": 0.027351319789886475,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.004612133372575045,
+      "validation_rmse_rad": 0.0026280514430254698,
+      "nominal_validation_rmse_rad": 0.01557671744376421,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_shoulder_pitch_s1/results.json",
+      "limitations": [
+        "不同 seed 的拟合误差差异较大，搜索结果仍不稳定",
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_shoulder_roll": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.014347919262945652,
+        "viscous_friction": 0.43498656153678894,
+        "coulomb_friction": 0.6188773512840271,
+        "encoder_bias": 0.0780310183763504,
+        "delay_steps": 4.0
+      },
+      "fit_rmse_rad": 0.01742505468428135,
+      "validation_rmse_rad": 0.017207428812980652,
+      "nominal_validation_rmse_rad": 0.06347250193357468,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_shoulder_roll_s0/results.json",
+      "limitations": [
+        "接近搜索边界：encoder_bias",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_hip_yaw": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.020282702520489693,
+        "viscous_friction": 0.005538951605558395,
+        "coulomb_friction": 0.8608121275901794,
+        "encoder_bias": -0.07871212065219879,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.006971118971705437,
+      "validation_rmse_rad": 0.006616431754082441,
+      "nominal_validation_rmse_rad": 0.01807660423219204,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_hip_yaw_s0/results.json",
+      "limitations": [
+        "接近搜索边界：viscous_friction, encoder_bias, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_elbow": {
+      "status": "effective_fixed_support_fit",
+      "seed": 1,
+      "parameters": {
+        "armature": 0.00205137487500906,
+        "viscous_friction": 0.012977144680917263,
+        "coulomb_friction": 0.34491679072380066,
+        "encoder_bias": -0.05288105458021164,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.002384225372225046,
+      "validation_rmse_rad": 0.0014553889632225037,
+      "nominal_validation_rmse_rad": 0.014947256073355675,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_elbow_s1/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_knee": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.19002440571784973,
+        "viscous_friction": 0.07023850828409195,
+        "coulomb_friction": 0.8866919279098511,
+        "encoder_bias": -0.040022991597652435,
+        "delay_steps": 1.0
+      },
+      "fit_rmse_rad": 0.0026392973959445953,
+      "validation_rmse_rad": 0.0038160940166562796,
+      "nominal_validation_rmse_rad": 0.007470298558473587,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_knee_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：viscous_friction",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_hip_roll": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.15738902986049652,
+        "viscous_friction": 0.00575457327067852,
+        "coulomb_friction": 0.7727925181388855,
+        "encoder_bias": -0.014445900917053223,
+        "delay_steps": 2.0
+      },
+      "fit_rmse_rad": 0.0023618368431925774,
+      "validation_rmse_rad": 0.003672742284834385,
+      "nominal_validation_rmse_rad": 0.006391831673681736,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_hip_roll_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：viscous_friction",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_knee": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.004993444308638573,
+        "viscous_friction": 0.006470355670899153,
+        "coulomb_friction": 0.8891811966896057,
+        "encoder_bias": 0.0613003745675087,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.0028902178164571524,
+      "validation_rmse_rad": 0.002752771833911538,
+      "nominal_validation_rmse_rad": 0.007973218336701393,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_knee_s0/results.json",
+      "limitations": [
+        "接近搜索边界：viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_ankle_roll": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.001043459982611239,
+        "viscous_friction": 0.0597679503262043,
+        "coulomb_friction": 0.5968065857887268,
+        "encoder_bias": 0.07330211997032166,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.012556469067931175,
+      "validation_rmse_rad": 0.012543894350528717,
+      "nominal_validation_rmse_rad": 0.01678399369120598,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_ankle_roll_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：armature, viscous_friction, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "left_shoulder_pitch": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.0005603200988844037,
+        "viscous_friction": 2.2435073852539062,
+        "coulomb_friction": 0.19550393521785736,
+        "encoder_bias": 0.021172447130084038,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.004284083843231201,
+      "validation_rmse_rad": 0.004068327136337757,
+      "nominal_validation_rmse_rad": 0.013641871511936188,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/left_shoulder_pitch_s0/results.json",
+      "limitations": [
+        "激励较小，参数可辨识性有限",
+        "接近搜索边界：armature, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    },
+    "right_hip_yaw": {
+      "status": "effective_fixed_support_fit",
+      "seed": 0,
+      "parameters": {
+        "armature": 0.024145476520061493,
+        "viscous_friction": 0.004766765516251326,
+        "coulomb_friction": 1.0592398643493652,
+        "encoder_bias": -0.07764407992362976,
+        "delay_steps": 0.0
+      },
+      "fit_rmse_rad": 0.006756741087883711,
+      "validation_rmse_rad": 0.007278013974428177,
+      "nominal_validation_rmse_rad": 0.021602949127554893,
+      "source_results": "/home/henry/workspace/experiments/g1_pace_20261027/pace-sim2real/logs/g1_sysid/full_body_batch/right_hip_yaw_s0/results.json",
+      "limitations": [
+        "接近搜索边界：viscous_friction, encoder_bias, delay_steps",
+        "局部参数耦合较强；低轨迹误差不代表所有参数唯一可辨识"
+      ]
+    }
+  }
+}

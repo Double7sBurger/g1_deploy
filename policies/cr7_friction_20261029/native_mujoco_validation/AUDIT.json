@@ -1,0 +1,65 @@
+{
+  "completed_at": "2026-10-29T14:28:03.677411+08:00",
+  "candidates": 15,
+  "trials": 3615,
+  "pending": 0,
+  "native_mujoco_version": "3.11.0",
+  "frozen_model_sha256": {
+    "implicit200": "0d65884e096fe6eee5e606b57686156ef75e094904a2719e055308f5bc63ce68",
+    "explicit400": "9affd2cb20d558cff60cbf443681dc4896de25e36d395a44ed66d0015e027291"
+  },
+  "frozen_model_fk_error_max_m": 2.670480313212144e-07,
+  "model_gravity_and_control_timing_verified": true,
+  "floor_contact_coefficients_verified_each_trial": true,
+  "numerical_failure_breakdown": {
+    "after_clip_after_fall": 163,
+    "during_clip_after_fall": 136,
+    "during_clip_before_fall": 2
+  },
+  "fresh_process_checks": [
+    {
+      "directory": "fixed/mu_1.3",
+      "seed": 7011,
+      "failure": {
+        "time_s": 0.785,
+        "raw_mujoco_clock_s": 0.7850000000000006,
+        "error": "MuJoCo reported an invalid position/velocity/acceleration/control"
+      },
+      "original_seed": 7011,
+      "initial_jitter": true,
+      "reproduced_in_fresh_process": true
+    },
+    {
+      "directory": "fixed/mu_1.2",
+      "seed": 2031,
+      "failure": {
+        "time_s": 3.23,
+        "raw_mujoco_clock_s": 0.005,
+        "error": "MuJoCo reset its simulation clock"
+      },
+      "original_seed": 0,
+      "initial_jitter": false,
+      "reproduced_in_fresh_process": true
+    }
+  ],
+  "priority_candidates": {
+    "fixed/mu_0.7": {
+      "successful_trials": 241,
+      "total_trials": 241,
+      "max_actual_joint_limit_excess_deg": 10.050104336510296
+    },
+    "fixed/mu_0.8": {
+      "successful_trials": 241,
+      "total_trials": 241,
+      "max_actual_joint_limit_excess_deg": 11.32690190309831
+    }
+  },
+  "encoded_videos_verified": 5,
+  "batch_wall_seconds": 318.49443037388846,
+  "evaluator_sha256": "6ed77dcc24cd5049fb09436bc52958b7abe2868c1fd34a556b10474accf5a3a4",
+  "diagnostic_versions_excluded": [
+    "diagnostic_v1",
+    "diagnostic_v2"
+  ],
+  "hardware_validated": false
+}

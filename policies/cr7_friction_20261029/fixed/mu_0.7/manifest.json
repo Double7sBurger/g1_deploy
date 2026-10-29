@@ -1,0 +1,29 @@
+{
+  "candidate_id": "old_implicit200__cr7-mu07__s44__29999",
+  "files_sha256": {
+    "contract.json": "7fa98570620e7dff2387c684c055de441b29c37b58e6a701f1ef1881fdc9d6d7",
+    "evaluations/holdout_summary.json": "66c9e8f5233c8f904dfda7d90e5d081bd79678628426d9ba86cf71250b595384",
+    "evaluations/results/clean/2026/evaluation.json": "5d116e9866113fd9bffa1708ba69cf4fd3f299f15dbfc00a1aeceac92ce067bb",
+    "evaluations/results/clean/2027/evaluation.json": "0d6daad869785862c9f8bc47eb47641ed84a8725d40e95243b45766eaf685a86",
+    "evaluations/results/robust/2026/evaluation.json": "eb6ea2a92fa0d48984d5d8489506464a399acdc5bf48a27329a45c00c41c5912",
+    "evaluations/results/robust/2027/evaluation.json": "aeaa9aa39182b8fbee7ad6e5ec2f2e27217713a47c9a66ed806af62450748092",
+    "evaluations/validation/clean/2031/evaluation.json": "db33ecf4509c26d8321ec5c7167055668cb0b450a6d40a92577c7e25e333799a",
+    "evaluations/validation/clean/2032/evaluation.json": "18e6388f25f14f8e09cca8d84c4ed18863e95e97599eb21eea7d994850ba2e3a",
+    "evaluations/validation/robust/2031/evaluation.json": "26c93cbab365574650ac61436dad7cffb52d89b795067691a54ddbb67cdcd7a3",
+    "evaluations/validation/robust/2032/evaluation.json": "b83a4441a350fc2d18aa53546bba9a3ca25fc62db97cec4ee3032a7de35e87d9",
+    "model_29999.pt": "e9f84f769afcec97f51dac6d4692834f56e02859cf12d4539aceeba3475dacff",
+    "motion.json": "ec562ba2d3ce5e59710754c4aa4742703dc9c50f7f371c4d40962b8159721c44",
+    "motion.npz": "1e52aa209c1765e61f0590ddb77d9c6fe0f09cb372395665306034acd1d4fe9a",
+    "policy.pt": "74f2b511b31e528a7ba29b59a605b3c25d66f4b7fbc30e0716b50b504e4aebdc",
+    "selection.json": "2d954af855046315e4e6fc984f6b31681bc1885a96dd5852f65c258a94d675df",
+    "training/experiment.json": "e16561650d18758e40800f865a7b5c635d74ce0b7017042a57c464ba52811751",
+    "training/params/agent.yaml": "28d97613cae9253f14420a0adddb88941503f462b022e4f1a808a0a335903500",
+    "training/params/env.yaml": "c0e7eaa4de38cb2c3e68aacc3f820db17291a638aa07344f82926c1a6b98225a",
+    "training/source_manifest.json": "2844760b43f1c4b39cf1cb1b1b2eb3d15b6ae80dac32a87638972f1b148cf946",
+    "training/sysid_parameters.json": "fbc6b33b6ae25bdc24de62180ae39963eb3b5801950a4471585185870389deaa",
+    "training/training_summary.json": "739154d68b7f59682b19202a2113d5fa2c61c329999b8a97ad45ac4c29c69c38",
+    "validation.json": "34e25a71550f36be1f2984b06c282364ac663c0035d3bb8c655269461c9070fb",
+    "evaluations/native_mujoco/summary.json": "2a17fd49fe524d116f43c0cc15cee3acfe5e3e4e502e52b0186272f106d78804"
+  },
+  "hardware_validated": false
+}

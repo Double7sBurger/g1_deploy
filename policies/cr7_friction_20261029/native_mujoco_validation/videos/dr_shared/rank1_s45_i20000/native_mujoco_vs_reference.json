@@ -1,0 +1,14 @@
+{
+  "directory": "dr_shared/rank1_s45_i20000",
+  "evaluation": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/results/dr_shared/rank1_s45_i20000/nominal/0/evaluation.json",
+  "video_sha256": "32a78ee6d2b71f78b19ee459bef96ab4a777607452440ad01c83f4a4c0f77fd0",
+  "pose_sha256": "50fdc7a991f581be583b423a7128fe8a4811b4326a524300cf921b0047f848f3",
+  "physics": "Standalone native MuJoCo mj_step; no Newton/Lab stepping",
+  "policy_sha256": "108177989d5c99237a4ff7cd6ae2ec0253d2b55638ad9549b45bd1665552c7d7",
+  "floor_friction": 1.0,
+  "clip_success": true,
+  "clip_and_hold_success": true,
+  "video_duration_s": 7.96,
+  "selection": "Deterministic exact-reference initial state, no success-based trial selection",
+  "reference_render_alignment": "One initial XY/yaw transform; no height offset; last reference frame held after 5.92s"
+}

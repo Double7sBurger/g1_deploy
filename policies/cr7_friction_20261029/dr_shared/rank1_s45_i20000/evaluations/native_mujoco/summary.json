@@ -1,0 +1,505 @@
+{
+  "directory": "dr_shared/rank1_s45_i20000",
+  "training_seed": 45,
+  "iteration": 20000,
+  "mode": "explicit400",
+  "checkpoint_sha256": "f08d774272b89807e4dc131268c51bad3fb480b1c4b00548c0c978f4f6fd559c",
+  "suites": {
+    "nominal": {
+      "expected": 1,
+      "completed": 1,
+      "clip_valid": 1,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 1,
+      "clip_success_rate_valid_only": 1,
+      "clip_and_hold_success": 1,
+      "clip_and_hold_rate_valid_only": 1,
+      "mean_body_error_m_successful_clips": 0.0782803237155575,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 5.088461593689948,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07376224873160894,
+      "failure_examples": []
+    },
+    "clean": {
+      "expected": 64,
+      "completed": 64,
+      "clip_valid": 64,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 49,
+      "clip_success_rate_valid_only": 0.765625,
+      "clip_and_hold_success": 49,
+      "clip_and_hold_rate_valid_only": 0.765625,
+      "mean_body_error_m_successful_clips": 0.08048622469129163,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 32.023248418247086,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07610478991468196,
+      "failure_examples": [
+        {
+          "seed": 6011,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.36,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.98,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6017,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.18,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6018,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.92,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6021,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.38,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6028,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.44,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6032,
+          "floor_friction": 1.0,
+          "fall_time_s": 2.44,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6034,
+          "floor_friction": 1.0,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_0.5": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 16,
+      "clip_success_rate_valid_only": 1,
+      "clip_and_hold_success": 16,
+      "clip_and_hold_rate_valid_only": 1,
+      "mean_body_error_m_successful_clips": 0.07708483188595937,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 7.978404313800547,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.0837710640545347,
+      "failure_examples": []
+    },
+    "mu_0.6": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 14,
+      "clip_success_rate_valid_only": 0.875,
+      "clip_and_hold_success": 14,
+      "clip_and_hold_rate_valid_only": 0.875,
+      "mean_body_error_m_successful_clips": 0.077027364427112,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 28.990380957310173,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07656856518425338,
+      "failure_examples": [
+        {
+          "seed": 6012,
+          "floor_friction": 0.6,
+          "fall_time_s": 3.66,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 0.6,
+          "fall_time_s": 4.08,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_0.7": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 15,
+      "clip_success_rate_valid_only": 0.9375,
+      "clip_and_hold_success": 15,
+      "clip_and_hold_rate_valid_only": 0.9375,
+      "mean_body_error_m_successful_clips": 0.07695511614486282,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 20.805413058486707,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07345832960021695,
+      "failure_examples": [
+        {
+          "seed": 6013,
+          "floor_friction": 0.7,
+          "fall_time_s": 3.1,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_0.8": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 14,
+      "clip_success_rate_valid_only": 0.875,
+      "clip_and_hold_success": 14,
+      "clip_and_hold_rate_valid_only": 0.875,
+      "mean_body_error_m_successful_clips": 0.08184757171338003,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 23.872150873798642,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.08627825067367562,
+      "failure_examples": [
+        {
+          "seed": 6004,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 0.8,
+          "fall_time_s": 3.16,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_0.9": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 10,
+      "clip_success_rate_valid_only": 0.625,
+      "clip_and_hold_success": 10,
+      "clip_and_hold_rate_valid_only": 0.625,
+      "mean_body_error_m_successful_clips": 0.07845356701198967,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 26.767666552407835,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.06967722695681432,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6012,
+          "floor_friction": 0.9,
+          "fall_time_s": 2.98,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.42,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6014,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.36,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 0.9,
+          "fall_time_s": 3.08,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_1.1": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 11,
+      "clip_success_rate_valid_only": 0.6875,
+      "clip_and_hold_success": 11,
+      "clip_and_hold_rate_valid_only": 0.6875,
+      "mean_body_error_m_successful_clips": 0.08280390147015886,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 33.30426620339483,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.08544514345882888,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.48,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.96,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6012,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.72,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.1,
+          "fall_time_s": 3.1,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 1.1,
+          "fall_time_s": 2.96,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_1.2": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 11,
+      "clip_success_rate_valid_only": 0.6875,
+      "clip_and_hold_success": 11,
+      "clip_and_hold_rate_valid_only": 0.6875,
+      "mean_body_error_m_successful_clips": 0.0805763389401808,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 29.387806558825627,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07448477409971653,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.18,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.14,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6011,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.42,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.2,
+          "fall_time_s": 3.06,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 1.2,
+          "fall_time_s": 2.94,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_1.3": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 10,
+      "clip_success_rate_valid_only": 0.625,
+      "clip_and_hold_success": 10,
+      "clip_and_hold_rate_valid_only": 0.625,
+      "mean_body_error_m_successful_clips": 0.0796780231934362,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 24.395464014860238,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07951950178362298,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 1.3,
+          "fall_time_s": 2.44,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6003,
+          "floor_friction": 1.3,
+          "fall_time_s": 3.2800000000000002,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6009,
+          "floor_friction": 1.3,
+          "fall_time_s": 2.56,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6011,
+          "floor_friction": 1.3,
+          "fall_time_s": 2.48,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.3,
+          "fall_time_s": 2.52,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 1.3,
+          "fall_time_s": 2.94,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "mu_1.5": {
+      "expected": 16,
+      "completed": 16,
+      "clip_valid": 16,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 8,
+      "clip_success_rate_valid_only": 0.5,
+      "clip_and_hold_success": 8,
+      "clip_and_hold_rate_valid_only": 0.5,
+      "mean_body_error_m_successful_clips": 0.08783940045734163,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 27.653476147308357,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.06918547305652104,
+      "failure_examples": [
+        {
+          "seed": 6001,
+          "floor_friction": 1.5,
+          "fall_time_s": 2.42,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6004,
+          "floor_friction": 1.5,
+          "fall_time_s": 2.86,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6007,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6011,
+          "floor_friction": 1.5,
+          "fall_time_s": 2.5,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6012,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.18,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6013,
+          "floor_friction": 1.5,
+          "fall_time_s": 3.5,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6014,
+          "floor_friction": 1.5,
+          "fall_time_s": 2.48,
+          "numerical_failure": null
+        },
+        {
+          "seed": 6015,
+          "floor_friction": 1.5,
+          "fall_time_s": 2.42,
+          "numerical_failure": null
+        }
+      ]
+    },
+    "friction_only_dr": {
+      "expected": 32,
+      "completed": 32,
+      "clip_valid": 32,
+      "clip_invalid": 0,
+      "hold_invalid": 0,
+      "clip_success": 24,
+      "clip_success_rate_valid_only": 0.75,
+      "clip_and_hold_success": 24,
+      "clip_and_hold_rate_valid_only": 0.75,
+      "mean_body_error_m_successful_clips": 0.08095416907229426,
+      "max_actual_joint_limit_excess_deg_all_valid_rollouts": 24.443852994277865,
+      "mean_contact_foot_origin_speed_m_s_successful_clips": 0.07983610303659168,
+      "failure_examples": [
+        {
+          "seed": 7001,
+          "floor_friction": 1.4606370704684168,
+          "fall_time_s": 2.54,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7010,
+          "floor_friction": 1.043918795978879,
+          "fall_time_s": 3.12,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7011,
+          "floor_friction": 0.5100270957897585,
+          "fall_time_s": 2.44,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7015,
+          "floor_friction": 1.0940948484026956,
+          "fall_time_s": 2.16,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7022,
+          "floor_friction": 1.238774545888051,
+          "fall_time_s": 3.06,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7024,
+          "floor_friction": 1.2684771843868714,
+          "fall_time_s": 2.48,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7028,
+          "floor_friction": 1.3755212701484574,
+          "fall_time_s": 2.92,
+          "numerical_failure": null
+        },
+        {
+          "seed": 7030,
+          "floor_friction": 1.4400831295705445,
+          "fall_time_s": 2.5,
+          "numerical_failure": null
+        }
+      ]
+    }
+  }
+}

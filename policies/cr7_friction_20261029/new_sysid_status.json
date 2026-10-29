@@ -1,0 +1,37 @@
+{
+  "explicit400": {
+    "queried_at": "2026-10-29T13:44:22.064271+08:00",
+    "counts": {
+      "COMPLETED": 3,
+      "FAILED": 9,
+      "RUNNING": 15
+    },
+    "completed": [
+      "train-cr7-mu05-s42",
+      "train-cr7-mu05-s43",
+      "train-cr7-mu08-s42"
+    ],
+    "failed": [
+      "train-cr7-mu05-s44",
+      "train-cr7-mu06-s42",
+      "train-cr7-mu06-s43",
+      "train-cr7-mu06-s44",
+      "train-cr7-mu07-s42",
+      "train-cr7-mu07-s43",
+      "train-cr7-mu07-s44",
+      "train-cr7-mu08-s43",
+      "train-cr7-mu08-s44"
+    ],
+    "workflow": "g1-refit-exp400-friction-1"
+  },
+  "implicit200": {
+    "queried_at": "2026-10-29T13:44:21.757692+08:00",
+    "counts": {
+      "RUNNING": 23,
+      "SCHEDULING": 4
+    },
+    "completed": [],
+    "failed": [],
+    "workflow": "g1-refit-imp200-friction-1"
+  }
+}

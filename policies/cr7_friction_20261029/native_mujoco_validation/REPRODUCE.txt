@@ -1,0 +1,18 @@
+原生 MuJoCo 闭环复现（本机已有依赖）：
+/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_20261028/validation/venv/bin/python /home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/rollout.py --directory fixed/mu_0.7 --mu 1.0 --output /home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/reproduce_mu07
+/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_20261028/validation/venv/bin/python /home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/rollout.py --directory fixed/mu_0.8 --mu 0.5 --seed 6000 --jitter --output /home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/reproduce_mu08_low_friction
+
+完整3615条矩阵（已存在且hash一致的记录会跳过）：
+/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_20261028/validation/venv/bin/python /home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/batch.py --workers 4
+python /home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/summarize.py
+
+可视化：
+/home/henry/workspace/isaac-spinning-up/logs/osmo/newton_sysid_20261028/validation/venv/bin/python /home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/render.py fixed/mu_0.7
+
+MuJoCo 3.11.0；模型位于models/implicit200与explicit400/model.mjb。
+模型源为官方Isaac6.2 g1_29dof.usd，无Dex3；只在一次性模型导出时使用Newton的USD转换器。
+独立rollout进程仅调用mujoco.mj_step，断言没有导入Newton/Isaac Lab。
+运行脚本当前记录本机路径；迁移时需调整DEPLOY/PACKAGES/ROOT及可视化ASSET路径。
+policy/motion/contract仍使用所在部署包。不要将本仿真中的bias/延时实现再叠加到真实硬件控制。
+原始结果归档trial_results.tar.gz内含results/下3615份evaluation.json及15条nominal轨迹，运行时不依赖诊断版本。
+所有试验5.92秒CR7+2秒末帧hold；此处friction_only_dr仅随机地面，不包括质量/COM/编码器/推扰/噪声DR。

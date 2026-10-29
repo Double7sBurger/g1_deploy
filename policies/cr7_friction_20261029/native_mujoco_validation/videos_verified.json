@@ -1,0 +1,117 @@
+[
+  {
+    "video": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/dr_ground/rank1_s48_i25000/native_mujoco_vs_reference.mp4",
+    "sha256": "582cfe6081f81b03e048646d6cf1a0129f16568658f38da53284f330c4dff1b6",
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "199"
+        }
+      ],
+      "format": {
+        "duration": "7.960000"
+      }
+    },
+    "contact_sheet": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/dr_ground/rank1_s48_i25000/encoded_jump_and_landing.jpg",
+    "physics": "Standalone native MuJoCo mj_step; no Newton/Lab stepping",
+    "floor_friction": 1.0,
+    "encoded_jump_landing_contact_sheet_reviewed": true
+  },
+  {
+    "video": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/dr_shared/rank1_s45_i20000/native_mujoco_vs_reference.mp4",
+    "sha256": "32a78ee6d2b71f78b19ee459bef96ab4a777607452440ad01c83f4a4c0f77fd0",
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "199"
+        }
+      ],
+      "format": {
+        "duration": "7.960000"
+      }
+    },
+    "contact_sheet": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/dr_shared/rank1_s45_i20000/encoded_jump_and_landing.jpg",
+    "physics": "Standalone native MuJoCo mj_step; no Newton/Lab stepping",
+    "floor_friction": 1.0,
+    "encoded_jump_landing_contact_sheet_reviewed": true
+  },
+  {
+    "video": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/fixed/mu_0.7/native_mujoco_vs_reference.mp4",
+    "sha256": "0536427c43f23899d409d4ac06c9d61b1f2f2784f88b3215cd06fa20fabe2fd3",
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "199"
+        }
+      ],
+      "format": {
+        "duration": "7.960000"
+      }
+    },
+    "contact_sheet": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/fixed/mu_0.7/encoded_jump_and_landing.jpg",
+    "physics": "Standalone native MuJoCo mj_step; no Newton/Lab stepping",
+    "floor_friction": 1.0,
+    "encoded_jump_landing_contact_sheet_reviewed": true
+  },
+  {
+    "video": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/fixed/mu_0.8/native_mujoco_vs_reference.mp4",
+    "sha256": "0e0e1f18d230d72f4659a58db7316b8808a4b8cc78acf765227cca7c9bdd11b0",
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "199"
+        }
+      ],
+      "format": {
+        "duration": "7.960000"
+      }
+    },
+    "contact_sheet": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/fixed/mu_0.8/encoded_jump_and_landing.jpg",
+    "physics": "Standalone native MuJoCo mj_step; no Newton/Lab stepping",
+    "floor_friction": 1.0,
+    "encoded_jump_landing_contact_sheet_reviewed": true
+  },
+  {
+    "video": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/fixed/mu_1.3/native_mujoco_vs_reference.mp4",
+    "sha256": "ad1664601ae3470e6efda0cf09b8084c03b93e9aacfd5cfa543fb79578c20e5f",
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "r_frame_rate": "25/1",
+          "nb_frames": "199"
+        }
+      ],
+      "format": {
+        "duration": "7.960000"
+      }
+    },
+    "contact_sheet": "/home/henry/workspace/isaac-spinning-up/logs/osmo/native_mujoco_review_20261029/videos/fixed/mu_1.3/encoded_jump_and_landing.jpg",
+    "physics": "Standalone native MuJoCo mj_step; no Newton/Lab stepping",
+    "floor_friction": 1.0,
+    "encoded_jump_landing_contact_sheet_reviewed": true
+  }
+]
