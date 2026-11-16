@@ -141,8 +141,8 @@ def _main(cleanup) -> int:
                         help="Tracking stop threshold: torso tilt error against the reference [rad].")
     parser.add_argument("--hold_at_end", action="store_true",
                         help="When the clip ends, keep the policy running against its final frame"
-                             " instead of stopping. Every clip ends standing, so the robot keeps"
-                             " balancing; it does not necessarily stay put -- in simulation"
+                             " instead of returning to --stand_policy or stopping. Use only for"
+                             " clips with a stationary tail; the robot may drift -- in simulation"
                              " cartwheel wanders 10 m in two minutes. Ends on Ctrl-C, the remote"
                              " abort, or the tilt guard.")
     parser.add_argument("--stand_kp", type=float, default=None, metavar="KP",
@@ -153,9 +153,10 @@ def _main(cleanup) -> int:
                              " simulation; the trained ankle of 28.5 collapses in 1.5s.")
     parser.add_argument("--stand_policy", default=None, metavar="EXPORT_DIR",
                         help="With --tracking: go starts this mimic actor at fixed reference frame 0;"
-                             " go2 blends into the motion actor. Replaces the passive alignment hold.")
+                             " go2 blends into the motion actor. Returns here after playback unless"
+                             " --hold_at_end is set, and keeps balancing until stopped.")
     parser.add_argument("--stand_transition_s", type=float, default=1.0,
-                        help="Seconds to blend the active standing and motion actors after go2.")
+                        help="Seconds to blend into the motion after go2 and back to standing after playback.")
     parser.add_argument(
         "--depth",
         default=None,
@@ -434,16 +435,18 @@ def _main(cleanup) -> int:
     tracking_runner = None
     standing_runner = standing_sequence = None
     if args.tracking:
-        from g1_deploy.tracking import G1TrackingPolicyRunner
+        from g1_deploy.tracking import load_tracking_runner
 
-        tracking_runner = G1TrackingPolicyRunner(args.tracking)
+        tracking_runner = load_tracking_runner(args.tracking)
         contract = tracking_runner.contract
         policy = tracking_runner.policy
         if args.stand_policy:
             from g1_deploy.tracking import StandingTrackingRunner
 
-            standing_runner = G1TrackingPolicyRunner(args.stand_policy)
-            standing_sequence = StandingTrackingRunner(standing_runner, tracking_runner, args.stand_transition_s)
+            standing_runner = load_tracking_runner(args.stand_policy)
+            standing_sequence = StandingTrackingRunner(
+                standing_runner, tracking_runner, args.stand_transition_s, return_to_standing=not args.hold_at_end
+            )
     elif args.depth is None:
         # A directory is an export: policy.pt beside the contract it was trained under. The action
         # scale is the part that matters here -- the ms line replaced the blanket 0.5 with a
@@ -863,9 +866,12 @@ def _main(cleanup) -> int:
                     elapsed_s = standing_sequence.elapsed_s(now)
                     if (standing_sequence.motion_start is not None and n_steps is not None
                             and elapsed_s >= n_steps * core.CONTROL_DT - 1e-8):
-                        print("[ok] requested motion playback complete")
-                        break
-                if (tracking_runner is not None and not args.hold_at_end
+                        if standing_sequence.return_to_standing:
+                            standing_sequence.start_standing(now)
+                        else:
+                            print("[ok] requested motion playback complete")
+                            break
+                if (tracking_runner is not None and standing_sequence is None and not args.hold_at_end
                         and elapsed_s >= tracking_runner.duration - 1e-8):
                     print("[ok] reference motion complete")
                     break
@@ -928,6 +934,12 @@ def _main(cleanup) -> int:
                                             tilt_error=runner.tilt_error, joint_target=target, action=action)
                     if standing_sequence.phase != last_phase:
                         last_phase = standing_sequence.phase
+                        if last_phase in ("returning", "standing_after_motion"):
+                            message = ("motion complete; blending back to standing" if last_phase == "returning"
+                                       else "standing policy ACTIVE; stop with Ctrl-C or the remote abort")
+                            print(f"[{last_phase}] {message}")
+                            if recorder is not None:
+                                recorder.event(last_phase, timestamp_ns=step_started_ns, step=k)
                         if last_phase == "motion":
                             print("[motion] reference clock started at frame 0")
                             if recorder is not None:

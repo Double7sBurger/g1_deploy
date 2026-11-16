@@ -1,0 +1,9 @@
+{
+  "max_actor_error": 0.0,
+  "batches": [
+    1,
+    17,
+    128
+  ],
+  "checkpoint_sha256": "e31d4b95e82f9ddfa778708a0e42e242ce5885be5f0bda7ae42396893ae6f12c"
+}

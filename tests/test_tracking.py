@@ -196,6 +196,51 @@ class TrackingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Kp/Kd'):
             StandingTrackingRunner(standing, motion)
 
+    def test_return_to_standing_keeps_feedback_and_realigns_heading(self):
+        standing = G1TrackingPolicyRunner(self.directory)
+        motion = G1TrackingPolicyRunner(self.directory)
+        standing.policy = Mock(return_value=np.ones((1, 29), np.float32))
+        motion.policy = Mock(return_value=-np.ones((1, 29), np.float32))
+        sequence = StandingTrackingRunner(standing, motion, transition_s=1)
+        sensors = self.sensors()
+        sequence.step(*sensors, now=0)
+        sequence.start_motion(1)
+        sequence.step(*sensors, now=2)
+        applied = np.full(29, .05, np.float32)
+        sequence.set_previous_target(applied)
+        calls = motion.policy.call_count
+        sensors[2] = np.array([2**-.5, 0, 0, 2**-.5])
+        target, _ = sequence.step(*sensors, now=2+motion.duration)
+        self.assertEqual(sequence.phase, 'returning')
+        np.testing.assert_allclose(target, motion.default_joint_pos-motion.action_scale)
+        np.testing.assert_allclose(motion.policy.call_args.args[0][0,125:],
+                                   (applied-motion.default_joint_pos)/motion.action_scale)
+        observation = standing.policy.call_args.args[0][0]
+        np.testing.assert_allclose(observation[58:64], [1,0,0,1,0,0], atol=1e-7)
+        np.testing.assert_allclose(observation[125:], (applied-standing.default_joint_pos)/standing.action_scale)
+        target, _ = sequence.step(*sensors, now=2+motion.duration+.5)
+        expected = .5*(motion.default_joint_pos-motion.action_scale) + .5*(standing.default_joint_pos+standing.action_scale)
+        np.testing.assert_allclose(target, expected, atol=1e-7)
+        for now in (3+motion.duration, 30.):
+            target, _ = sequence.step(*sensors, now=now)
+            self.assertEqual(sequence.phase, 'standing_after_motion')
+            np.testing.assert_allclose(target, standing.default_joint_pos+standing.action_scale)
+        self.assertEqual(motion.policy.call_count, calls+2)
+        np.testing.assert_array_equal(sequence.command_at(30), standing.command_at(0))
+
+    def test_shortened_motion_returns_and_keeps_standing_until_abort(self):
+        recorder = Mock()
+        recorder.directory = self.directory/'recorded'
+        result, _, elapsed = self.standing_loop(extra=['--duration', '.02'], stop_after=3., recorder=recorder)
+        self.assertEqual(result, 0)
+        self.assertAlmostEqual(elapsed, 3.)
+        phases = [call.kwargs['phase'] for call in recorder.arrays.call_args_list
+                  if call.args[0] == 'standing_tracking']
+        self.assertIn('returning', phases)
+        self.assertEqual(phases[-1], 'standing_after_motion')
+        tracking = [call for call in recorder.arrays.call_args_list if call.args[0] == 'tracking']
+        self.assertEqual(len(tracking), 1)
+
     def test_confirmation_reader_waits_for_complete_exact_line_and_detects_eof(self):
         import os
         from g1_deploy.hardware import ConfirmationReader, OperatorAbort
@@ -268,10 +313,10 @@ class TrackingTests(unittest.TestCase):
         return result, link, clock[0]
 
     def test_go_go2_loop_keeps_controlling_and_starts_full_clip_after_wait_and_blend(self):
-        result, link, elapsed = self.standing_loop()
+        result, link, elapsed = self.standing_loop(stop_after=2.8)
         self.assertEqual(result, 0)
-        self.assertAlmostEqual(elapsed, 1.36)
-        self.assertEqual(link.send.call_count, 68)
+        self.assertAlmostEqual(elapsed, 2.8)
+        self.assertEqual(link.send.call_count, 141)
         np.testing.assert_array_equal(link.send.call_args_list[0].args[0], np.zeros(29))
         for call in link.send.call_args_list:
             np.testing.assert_array_equal(call.args[1], np.arange(1, 30))
@@ -291,7 +336,7 @@ class TrackingTests(unittest.TestCase):
     def test_standing_recording_starts_policy_window_at_first_motion_step(self):
         recorder = Mock()
         recorder.directory = self.directory / 'recorded'
-        result, _, _ = self.standing_loop(recorder=recorder)
+        result, _, _ = self.standing_loop(recorder=recorder, stop_after=2.8)
         self.assertEqual(result, 0)
         events = [c for c in recorder.event.call_args_list if c.args[0] == 'policy_start']
         self.assertEqual(len(events), 1)
@@ -397,12 +442,16 @@ class TrackingTests(unittest.TestCase):
             recorder.arrays('step', stamp, step=i, command=np.zeros(58),
                             state_received_ns=stamp, captured_ns=stamp)
             recorder.arrays('tracking', stamp, reference_time=i*.02, tilt_error=i*.1)
+        recorder.event('policy_start', timestamp_ns=start)
+        recorder.event('returning', timestamp_ns=start+10_000_000)
+        recorder.event('policy_stop', timestamp_ns=start+100_000_000)
         recorder.close()
         metadata = json.loads((recorder.directory/'metadata.json').read_text())
         self.assertEqual(metadata['policy_joint_names'], self.names)
         self.assertEqual(metadata['policy_to_robot'], list(range(29)))
         self.assertEqual(metadata['tracking']['motion_sha256'], runner.contract['motion_sha256'])
         _, summary, arrays = analyze(recorder.directory)
+        np.testing.assert_allclose(summary['policy_window_s'], [0., .01])
         self.assertNotIn('heading_error_deg', summary)
         self.assertNotIn('command', arrays)
         self.assertEqual(arrays['reference_command'].shape, (2, 58))

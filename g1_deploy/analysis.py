@@ -199,7 +199,9 @@ def analyze(directory):
     starts = [stamp for stamp, event in events if event["name"] == "policy_start"]
     stops = [stamp for stamp, event in events if event["name"] == "policy_stop"]
     lo = (starts[0] - origin) * 1e-9 if starts else t[0]
-    hi = (stops[-1] - origin) * 1e-9 if stops else t[-1]
+    returns = [stamp for stamp, event in events if event["name"] == "returning"]
+    end = returns[0] if returns else stops[-1] if stops else None
+    hi = (end - origin) * 1e-9 if end is not None else t[-1]
     active = (t >= lo) & (t <= hi)
     summary = dict(samples=len(t), recorded_seconds=float(t[-1] - t[0]),
                    policy_window_s=[float(lo), float(hi)] if starts else None,
@@ -299,7 +301,7 @@ def save_report(directory, output=None, *, plots=True, window="policy"):
         directory: The recording directory.
         output: Report directory; defaults to ``directory/analysis``.
         plots: Also render the static PNGs.
-        window: ``"policy"`` exports only the samples between ``policy_start`` and ``policy_stop``;
+        window: ``"policy"`` exports only the samples between ``policy_start`` and the return to standing or ``policy_stop``;
             ``"all"`` exports the whole recording, ramp and hold included.
     """
     from g1_deploy.bundle import finite_json, write_bundle

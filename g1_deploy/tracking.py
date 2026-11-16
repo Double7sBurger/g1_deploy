@@ -52,18 +52,7 @@ class G1TrackingPolicyRunner:
         self.directory = Path(directory)
         self.contract = json.loads((self.directory / "contract.json").read_text())
         c = self.contract
-        if (c.get("policy_type") != "motion_tracking" or c.get("schema_version") != 1
-                or c.get("obs_1d_dim") != 154 or c.get("action_dim") != 29
-                or c.get("history_length") != 1 or c.get("obs_normalization") is not False
-                or c.get("anchor_body_name") != "torso_link" or c.get("root_body_name") != "pelvis"
-                or c.get("quaternion_order") != "wxyz"
-                or c.get("orientation_encoding") != "matrix_first_two_columns_row_major"
-                or c.get("use_default_offset") is not True or c.get("clip_actions") is not None):
-            raise ValueError("Unsupported motion-tracking contract")
-        terms = {"command": 58, "motion_anchor_ori_b": 6, "base_ang_vel": 3,
-                 "joint_pos": 29, "joint_vel": 29, "actions": 29}
-        if list(c.get("obs_1d_terms", {}).items()) != list(terms.items()):
-            raise ValueError("Tracking observation order differs from the trained contract")
+        self._validate_contract(c)
         self.joint_names = list(c["joint_names"])
         motors = [name + "_joint" for name in MOTOR_NAMES]
         if len(self.joint_names) != 29 or set(self.joint_names) != set(motors):
@@ -92,8 +81,8 @@ class G1TrackingPolicyRunner:
             order = [names["joint_names"].index(name) for name in self.joint_names]
             self.reference_pos = np.asarray(motion["joint_pos"][:, order], dtype=np.float32)
             self.reference_vel = np.asarray(motion["joint_vel"][:, order], dtype=np.float32)
-            quat = np.asarray(motion["body_quat_w"][:, names["body_names"].index("torso_link")])
-            if not np.isclose(float(motion["fps"]) * self.control_dt, 1, rtol=0, atol=1e-6):
+            quat = np.asarray(motion["body_quat_w"][:, names["body_names"].index(c["anchor_body_name"])])
+            if not np.isclose(np.asarray(motion["fps"]).item() * self.control_dt, 1, rtol=0, atol=1e-6):
                 raise ValueError("Reference FPS differs from the policy control rate")
         n = len(self.reference_pos)
         if (n < 2 or self.reference_pos.shape != (n, 29) or self.reference_vel.shape != (n, 29)
@@ -102,11 +91,25 @@ class G1TrackingPolicyRunner:
                 or not np.allclose(np.linalg.norm(quat, axis=-1), 1, rtol=0, atol=1e-3)):
             raise ValueError("Invalid motion arrays or reference quaternions")
         self.reference_rotation = rotation_matrix(quat)
-        self.num_steps = n - 1
+        self.num_steps = n - (c["policy_type"] == "motion_tracking")
         self.duration = self.num_steps * self.control_dt
         self.default_pose = self.to_motors(self.reference_pos[0])
-        self.policy = core.load_policy(str(self.directory / "policy.pt"), obs_dim=154, action_dim=29)
+        self.policy = core.load_policy(str(self.directory / "policy.pt"), obs_dim=c["obs_1d_dim"], action_dim=29)
         self.reset()
+
+    def _validate_contract(self, c):
+        if (c.get("policy_type") != "motion_tracking" or c.get("schema_version") != 1
+                or c.get("obs_1d_dim") != 154 or c.get("action_dim") != 29
+                or c.get("history_length") != 1 or c.get("obs_normalization") is not False
+                or c.get("anchor_body_name") != "torso_link" or c.get("root_body_name") != "pelvis"
+                or c.get("quaternion_order") != "wxyz"
+                or c.get("orientation_encoding") != "matrix_first_two_columns_row_major"
+                or c.get("use_default_offset") is not True or c.get("clip_actions") is not None):
+            raise ValueError("Unsupported motion-tracking contract")
+        terms = {"command": 58, "motion_anchor_ori_b": 6, "base_ang_vel": 3,
+                 "joint_pos": 29, "joint_vel": 29, "actions": 29}
+        if list(c.get("obs_1d_terms", {}).items()) != list(terms.items()):
+            raise ValueError("Tracking observation order differs from the trained contract")
 
     @staticmethod
     def _check_hash(path, expected):
@@ -138,11 +141,18 @@ class G1TrackingPolicyRunner:
         self._last_action = np.zeros(29, dtype=np.float32)
         self.tilt_error = 0.0
 
+    def warmup(self, joint_pos, joint_vel, quat_wxyz, gyro):
+        """Collect pre-transition sensors; the single-frame actor has no history."""
+
+    def begin_motion(self):
+        """Start a new reference timeline."""
+        self.reset()
+
     def index_at(self, elapsed_s):
         """Reference frame for ``elapsed_s``, held at the last one once the clip has played.
 
-        Every packaged clip ends standing still, so a frozen final frame is a reference the policy
-        can keep tracking rather than a cliff.
+        Holding the final frame is only meaningful for clips with a stationary tail.
+        The caller normally stops after ``duration``.
         """
         if not np.isfinite(elapsed_s) or elapsed_s < 0:
             raise ValueError("Invalid reference time")
@@ -208,9 +218,10 @@ class StandingTrackingRunner:
 
     Both actors keep receiving fresh sensors. The motion clock starts only after
     confirmation and the transition; waiting never consumes any reference frames.
+    By default, completion blends back to standing and keeps that actor active.
     """
 
-    def __init__(self, standing, motion, transition_s=1.0, engage_s=0.3):
+    def __init__(self, standing, motion, transition_s=1.0, engage_s=0.3, return_to_standing=True):
         if standing is motion:
             raise ValueError("Standing and motion need separate runner state")
         if any(not np.allclose(getattr(standing, key), getattr(motion, key), rtol=1e-6, atol=1e-6)
@@ -220,6 +231,7 @@ class StandingTrackingRunner:
             raise ValueError("Standing transition and engagement durations must be positive and finite")
         self.standing, self.motion = standing, motion
         self.transition_s, self.engage_s = float(transition_s), float(engage_s)
+        self.return_to_standing = return_to_standing
         self.reset()
 
     def reset(self):
@@ -228,6 +240,7 @@ class StandingTrackingRunner:
         self.phase = "standing"
         self.engaged_at = self.transition_at = self.motion_start = None
         self.initial_target = self.last_target = None
+        self.return_at = None
         self.tilt_error = 0.0
         self._motion_seeded = False
 
@@ -246,11 +259,24 @@ class StandingTrackingRunner:
         self.transition_at = max(float(now), self.engaged_at + self.engage_s)
         self.motion_start = self.transition_at + self.transition_s
 
+    def start_standing(self, now):
+        """Re-engage standing at the current heading with the actual previous action."""
+        if not np.isfinite(now):
+            raise ValueError("Invalid standing clock")
+        if self.motion_start is None or self.last_target is None:
+            raise RuntimeError("Motion must be started before returning to standing")
+        if self.return_at is not None:
+            return
+        self.return_at = float(now)
+        self.standing.reset()
+        self.standing.set_previous_target(self.last_target)
+
     def elapsed_s(self, now):
         return 0.0 if self.motion_start is None else max(0.0, float(now) - self.motion_start)
 
     def command_at(self, now):
-        if self.transition_at is None or now < self.transition_at:
+        if (self.transition_at is None or now < self.transition_at
+                or self.return_at is not None and now >= self.return_at):
             return self.standing.command_at(0.0)
         return self.motion.command_at(self.elapsed_s(now))
 
@@ -262,7 +288,7 @@ class StandingTrackingRunner:
         self.last_target = target.copy()
         if self.phase != "motion":
             self.standing.set_previous_target(target)
-        if self._motion_seeded:
+        if self._motion_seeded and self.phase != "standing_after_motion":
             self.motion.set_previous_target(target)
 
     def step(self, joint_pos, joint_vel, quat_wxyz, gyro, *, now, action_limit=None):
@@ -272,6 +298,20 @@ class StandingTrackingRunner:
             self.engaged_at = float(now)
             self.initial_target = np.asarray(joint_pos, dtype=np.float32).copy()
         sensors = joint_pos, joint_vel, quat_wxyz, gyro
+        if (self.return_to_standing and self.motion_start is not None and self.return_at is None
+                and now >= self.motion_start + self.motion.duration - 1e-8):
+            self.start_standing(now)
+        if self.return_at is not None:
+            alpha = self._blend((now - self.return_at) / self.transition_s)
+            self.phase = "standing_after_motion" if now >= self.return_at + self.transition_s - 1e-8 else "returning"
+            target, action = self.standing.step(*sensors, elapsed_s=0.0, action_limit=action_limit)
+            self.tilt_error = self.standing.tilt_error
+            if self.phase == "returning":
+                moving, action = self.motion.step(*sensors, elapsed_s=self.motion.duration, action_limit=action_limit)
+                target = (1-alpha) * moving + alpha * target
+                self.tilt_error = max(self.tilt_error, self.motion.tilt_error)
+            self.set_previous_target(target)
+            return target, action
         if self.motion_start is not None and now >= self.motion_start - 1e-8:
             self.phase = "motion"
         elif self.transition_at is not None and now >= self.transition_at - 1e-8:
@@ -279,12 +319,16 @@ class StandingTrackingRunner:
         else:
             self.phase = "standing"
 
+        if self.phase == "standing":
+            previous = self.initial_target if self.last_target is None else self.last_target
+            self.motion.set_previous_target(previous)
+            self.motion.warmup(*sensors)
         if self.phase != "motion":
             target, action = self.standing.step(*sensors, elapsed_s=0.0, action_limit=action_limit)
             self.tilt_error = self.standing.tilt_error
         if self.phase != "standing":
             if not self._motion_seeded:
-                self.motion.reset()
+                self.motion.begin_motion()
                 self.motion.set_previous_target(self.last_target)
                 self._motion_seeded = True
             moving, action = self.motion.step(*sensors, elapsed_s=self.elapsed_s(now), action_limit=action_limit)
@@ -300,3 +344,13 @@ class StandingTrackingRunner:
             target = (1-alpha) * self.initial_target + alpha * target
         self.set_previous_target(target)
         return target, action
+
+
+def load_tracking_runner(directory):
+    """Select the observation implementation recorded by the exported actor."""
+    contract = json.loads((Path(directory) / "contract.json").read_text())
+    if contract.get("policy_type") == "model_based_tracking":
+        from g1_deploy.model_based import G1ModelBasedPolicyRunner
+
+        return G1ModelBasedPolicyRunner(directory)
+    return G1TrackingPolicyRunner(directory)

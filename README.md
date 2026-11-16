@@ -204,13 +204,71 @@ blends from the measured joint targets over 0.3 seconds while the standing actor
 The same option works with `--real` and replaces the passive ramp/alignment hold. `--align_word`
 and `--align_timeout` select the second confirmation word and waiting timeout (default `go2`,
 300 s); `--stand_transition_s` sets the blend duration (default 1 s). An input disconnect, timeout,
-stale state or operator abort exits through the hardware damp-down path. Clip completion also
-damps down unless `--hold_at_end` is set; that option keeps the motion actor tracking its final
-frame until stopped, without switching back to the standing actor. `--duration` limits motion
-playback and final-frame holding, excluding the initial standing wait and transition.
+stale state or operator abort exits through the hardware damp-down path. With `--stand_policy`,
+clip completion (or the `--duration` limit) blends back to the standing actor over
+`--stand_transition_s`, then keeps standing until Ctrl-C, the remote abort or a guard stops the loop.
+During the return both actors keep receiving fresh sensors, while the motion reference stays at
+its last frame. The standing reference is re-aligned to the current heading. After the blend only
+the standing actor runs. Without `--stand_policy`,
+completion still exits. `--hold_at_end` explicitly keeps the motion actor on its final frame instead;
+with that option, `--duration` limits playback and final-frame holding. All duration limits exclude
+the initial standing wait and transitions.
 `--stand_policy` and `--stand_kp` select alternative standing modes and cannot be combined.
 Recordings distinguish standing, transition and motion, and store the two actors' inference
 streams separately.
+
+### Dedicated standing policy → SuperMimic 320k
+
+`policies/standing/export` is the separately trained friction-randomized PPO standing actor
+(`model_19999.pt`), exported from its saved configuration. The sixteen clips under
+`policies/model_based/bones_320k/g1/csv` share this session's BONES 320k actor. Move the complete
+`bones_320k` directory together: the clip directories use relative links to its shared `policy.pt`.
+
+The standing actor consumes 154 values. The SuperMimic actor consumes ten 93-value proprioception
+frames and a 640-value future-reference goal; its encoder, decoder and trained normalization are
+inside the exported model. No world model is used at runtime. The loop selects the runner from
+`contract.json`, keeps collecting motion-policy history during standing, and feeds the blended
+joint target back to both policies as their previous action. Gains remain those in the bundles.
+
+On this workstation, use the existing Python environment with Torch, MuJoCo and Unitree SDK:
+
+```bash
+cd /home/henry/workspace/g1_deploy
+uv run --no-project --python /home/henry/miniconda3/envs/env_isaaclab/bin/python \
+  python scripts/run_policy_loop.py --sim sync --viz --interface lo --domain_id 83 \
+  --tracking policies/model_based/bones_320k/g1/csv/220714/change_idle_to_idle_right_002__A026 \
+  --stand_policy policies/standing/export --stand_transition_s 2
+```
+
+Type `go` to engage the standing controller, then `go2` to begin the two-second blend. The full
+motion starts at frame zero after the blend. The motion bundle can be replaced with another clip
+under `bones_320k/g1/csv`. These clips have not been validated for indefinite final-frame holding;
+use the default return to the standing policy. The example returns over two seconds and then
+continues standing until you stop it.
+
+Native checkpoint-physics validation used three seconds of standing, two seconds of blending,
+then the complete original clip: 16 motions × three initial conditions completed without exceeding
+0.8 rad reference tilt error or falling below 0.3 m pelvis height. Initial perturbations were
+±1 cm XY, +5 mm height, ±2° orientation and ±0.03 rad joints. No state reset occurred at handover.
+This is a bounded simulation test, not a hardware validation or a latency-robustness benchmark.
+Reports and the reference/policy review video are in
+`../experiments/supermimic_reproduction_20261111/bones/standing_policy_entry_320k/`.
+The local DDS simulator uses its existing MuJoCo model and explicit PD path, which differs from
+the native Newton/MuJoCo Warp training simulation. The example above also completed a local DDS
+run with zero dropped recording messages. The walking-stop clip (`walk_ff_stop_360_R_001__A237`)
+showed a 0.324 rad target change in one 20 ms step at motion start despite completing; exclude it
+from the initial hardware candidate set until its entry behavior is improved.
+
+Automatic-return validation additionally ran all 16 clips with the same three initial conditions,
+followed by a two-second return blend and ten seconds of standing control. All 48 remained upright
+under the tilt/height criteria above, but some returned states exhibited sustained translation;
+completion is not proof of a stationary hold. Per-clip displacement and a full return video are in
+`../experiments/supermimic_reproduction_20261111/bones/standing_policy_return_320k/`.
+The loopback DDS test also completed the return and ten seconds of standing before operator stop.
+
+`python scripts/export_standing.py --help` describes re-exporting the PPO checkpoint (requires
+PyYAML). Run `scripts/export_model_based.py` with the training Isaac Lab environment to reconstruct
+and verify the original actor before exporting it; runtime only needs the normal deployment dependencies.
 
 ## Vision policies
 

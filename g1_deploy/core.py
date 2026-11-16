@@ -725,7 +725,10 @@ def load_policy(path: str, *, obs_dim: int | None = None, action_dim: int | None
     torch.set_num_threads(1)
     module = torch.jit.load(path)
     module.eval()
-    probe = module(torch.zeros(1, obs_dim))
+    for parameter in module.parameters():
+        parameter.requires_grad_(False)
+    with torch.inference_mode():
+        probe = module(torch.zeros(1, obs_dim))
     if probe.shape != (1, action_dim):
         raise ValueError(
             f"policy maps {obs_dim} observations to {tuple(probe.shape)}, expected (1, {action_dim})"

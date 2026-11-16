@@ -6,6 +6,8 @@ dist/
 .venv/
 *.npz
 !policies/mimic/*/motion.npz
+!policies/standing/export/motion.npz
+!policies/model_based/bones_320k/**/motion.npz
 *.mp4
 # *.pt
 *.onnx
